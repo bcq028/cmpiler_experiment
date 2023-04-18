@@ -31,47 +31,6 @@ frontend::DFA::DFA(): cur_state(frontend::State::Empty), cur_str() {}
 
 frontend::DFA::~DFA() {}
 
-namespace frontend{
-    std::map <std::string,TokenType> keyword_tokenType_m {
-    {"const",TokenType::CONSTTK},
-    {"void",TokenType::VOIDTK},
-    {"int",TokenType::INTTK},
-    {"float",TokenType::FLOATTK},
-    {"if",TokenType::IFTK},
-    {"else",TokenType::ELSETK},
-    {"while",TokenType::WHILETK},
-    {"continue",TokenType::CONTINUETK},
-    {"break",TokenType::BREAKTK},
-    {"return",TokenType::RETURNTK},
-};
-
-std::map <std::string,TokenType> op_tokenType_m {
-    {"+",TokenType::PLUS},
-    {"-",TokenType::MINU},
-    {"*",TokenType::MULT},
-    {"/",TokenType::DIV},
-    {"<",TokenType::LSS},
-    {">",TokenType::GTR},
-    {":",TokenType::COLON},
-    {"=",TokenType::ASSIGN},
-    {";",TokenType::SEMICN},
-    {",",TokenType::COMMA},
-    {"(",TokenType::LPARENT},
-    {")",TokenType::RPARENT},
-    {"[",TokenType::LBRACK},
-    {"]",TokenType::RBRACK},
-    {"{",TokenType::LBRACE},
-    {"}",TokenType::RBRACE},
-    {"!",TokenType::NOT},
-    {"<=",TokenType::LEQ},
-    {">=",TokenType::GEQ},
-    {"==",TokenType::EQL},
-    {"!=",TokenType::NEQ},
-    {"&&",TokenType::AND},
-    {"||",TokenType::OR},
-};
-}
-
 bool isIdent(char c){
     return (c>='a' && c<='z') || (c>='A' && c<='Z');
 }
