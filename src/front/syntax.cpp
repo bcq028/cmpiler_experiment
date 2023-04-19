@@ -157,7 +157,7 @@ namespace frontend
         PARSE(funcTypeNode, FuncType);
         PARSE_TOKEN(IDENFR);
         PARSE_TOKEN(LPARENT);
-        while (CUR_TOKEN_IS(INTTK) || CUR_TOKEN_IS(FLOATTK))
+        if (!CUR_TOKEN_IS(RPARENT))
         {
             PARSE(paramesNode, FuncFParams);
         }
