@@ -52,7 +52,7 @@ namespace frontend
          */
         void log(AstNode *node);
         Term *parseTerm(AstNode *root, TokenType t);
-        bool parseCompUint(CompUnit *root);
+        bool parseCompUnit(CompUnit *root);
         bool parseDecl(Decl *root);
         bool parseConstDecl(ConstDecl *root);
         bool parseVarDecl(VarDecl *root);
@@ -101,6 +101,7 @@ namespace frontend
         bool parseLAndExp(LAndExp *root);
         bool parseLOrExp(LOrExp *root);
         bool parseConstExp(ConstExp *root);
+        bool parseUnaryOp(UnaryOp *root);
     };
 
 } // namespace frontend
