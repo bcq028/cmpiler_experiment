@@ -82,25 +82,6 @@ namespace frontend
         bool parseLAndExp(LAndExp *root);
         bool parseLOrExp(LOrExp *root);
         bool parseInitVal(InitVal *root);
-        bool parseFuncFParam(FuncFParam *root);
-        bool parseFuncFParams(FuncFParams *root);
-        bool parseFuncType(FuncType *root);
-        bool parseFuncDef(FuncDef *root);
-        bool parseBlock(Block *root);
-        bool parseBlockItem(BlockItem *root);
-        bool parseStmt(Stmt *root);
-        bool parseLVal(LVal *root);
-        bool parseCond(Cond *root);
-        bool parsePrimaryExp(PrimaryExp *root);
-        bool parseUnaryExp(UnaryExp *root);
-        bool parseFuncRParams(FuncRParams *root);
-        bool parseMulExp(MulExp *root);
-        bool parseAddExp(AddExp *root);
-        bool parseRelExp(RelExp *root);
-        bool parseEqExp(EqExp *root);
-        bool parseLAndExp(LAndExp *root);
-        bool parseLOrExp(LOrExp *root);
-        bool parseConstExp(ConstExp *root);
         bool parseUnaryOp(UnaryOp *root);
     };
 

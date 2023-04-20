@@ -28,7 +28,7 @@ namespace frontend
         Token tk = token_stream[index];
         if (tk.type != t)
         {
-            assert(0 && 'token type wrong when parsing terminal');
+            assert(0 && "token type wrong when parsing terminal");
         }
         index++;
         return new Term(tk, root);
