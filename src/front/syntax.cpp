@@ -151,11 +151,12 @@ namespace frontend
         if (CUR_TOKEN_IS(LBRACE))
         {
             PARSE_TOKEN(LBRACE);
-            PARSE(constExpNode, ConstExp);
-            while (CUR_TOKEN_IS(COMMA))
-            {
-                PARSE_TOKEN(COMMA);
-                PARSE(constExpNode, ConstExp);
+            if(!CUR_TOKEN_IS(RBRACE)){
+                PARSE(t,ConstInitVal);
+                while(CUR_TOKEN_IS(COMMA)){
+                    PARSE_TOKEN(COMMA);
+                    PARSE(t,ConstInitVal);
+                }
             }
             PARSE_TOKEN(RBRACE);
         }
@@ -315,6 +316,7 @@ namespace frontend
             else
             {
                 index = back_trace_ind;
+                root->children.pop_back();
                 if (!CUR_TOKEN_IS(SEMICN))
                 {
                     PARSE(t, Exp);
