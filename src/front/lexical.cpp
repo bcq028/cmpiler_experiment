@@ -49,7 +49,7 @@ bool isOp(char c)
 
 bool isNumber(std::string s)
 {
-    std::regex num_regex("^[-+]?((\\d+)|(0x[\\da-fA-F]?)|(0o[0-7]?)|(0b[01]?))(\\.\\d?)?$");
+    std::regex num_regex("^[-+]?((\\d+)|(0x[\\da-fA-F]*)|(0o[0-7]*)|(0b[01]*))$");
     return std::regex_match(s, num_regex);
 }
 
@@ -141,7 +141,11 @@ bool frontend::DFA::next(char input, Token &buf)
         }
 
     case State::IntLiteral:
-        if (!isNumber(cur_str + input))
+        if (input == '.')
+        {
+            cur_state = State::FloatLiteral;
+            cur_str += input;
+        }else if (!isNumber(cur_str + input))
         {
             buf.value = cur_str;
             buf.type = TokenType::INTLTR;
@@ -153,11 +157,6 @@ bool frontend::DFA::next(char input, Token &buf)
                                                     : State::op;
             return true;
         }
-        else if (input == '.')
-        {
-            cur_state = State::FloatLiteral;
-            cur_str += input;
-        }
         else
         {
             cur_str += input;
@@ -165,15 +164,21 @@ bool frontend::DFA::next(char input, Token &buf)
         return false;
 
     case State::FloatLiteral:
-        if (isEmpty(input))
+        if (!(input>='0' && input<='9'))
         {
             buf.value = cur_str;
             buf.type = TokenType::FLOATLTR;
-            reset();
+            cur_str=input;
+            cur_state = isIdent(input)              ? State::Ident
+                        : isEmpty(input)            ? State::Empty
+                        : input == '.'              ? State::FloatLiteral
+                        : isNumber(cur_str + input) ? State::IntLiteral
+                                                    : State::op;
             return true;
         }
         else
         {
+            cur_str+=input;
             return false;
         }
     case State::op:

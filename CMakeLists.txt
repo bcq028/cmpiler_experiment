@@ -3,8 +3,7 @@ project(compiler)
 
 # compile flags
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS   "-g")                     # 调试信息
-set(CMAKE_CXX_FLAGS   "-Wall")                  # 开启所有警告
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall")
 # debug flags
 # add_definitions(-DDEBUG_DFA)
 # add_definitions(-DDEBUG_SCANNER)
