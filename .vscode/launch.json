@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "debugger",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceFolder}/bin/compiler",
+        "args": [
+          "${workspaceFolder}/test/testcase/function/95_float.sy",
+          "-s0",
+          "-o",
+          "../aaa.txt"
+        ],
+        "cwd": "${workspaceFolder}",
+        "MIMode": "gdb",
+        "miDebuggerPath": "gdb"
+      }
+    ]
+  }
