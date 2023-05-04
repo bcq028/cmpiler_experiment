@@ -1,6 +1,5 @@
 # IDE folders
 .idea/*
-.vscode/*
 
 # build files
 build/*
