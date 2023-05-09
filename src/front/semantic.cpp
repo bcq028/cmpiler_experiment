@@ -15,10 +15,12 @@ using ir::Operator;
     {                                                                                             \
         std::cerr << "Error: failed to cast node " << index << " to type " << #type << std::endl; \
     }
-#define ANALYSIS(node, type, index)                          \
-    auto node = dynamic_cast<type *>(root->children[index]); \
-    assert(node);                                            \
-    analysis##type(node, buffer);
+#define ANALYSIS(node, type, index)                              \
+    {                                                            \
+        auto node = dynamic_cast<type *>(root->children[index]); \
+        assert(node);                                            \
+        analysis##type(node, buffer);} 
+
 #define COPY_EXP_NODE(from, to)              \
     to->is_computable = from->is_computable; \
     to->v = from->v;                         \
@@ -67,7 +69,6 @@ frontend::STE frontend::SymbolTable::get_ste(string id) const
 
 frontend::Analyzer::Analyzer() : tmp_cnt(0), symbol_table()
 {
-    TODO;
 }
 
 ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
@@ -78,6 +79,11 @@ ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 }
 
 using namespace frontend;
+
+void Analyzer::analysisTerm(Term *root, string &s)
+{
+    s = root->token.value;
+}
 
 void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
 {
@@ -91,9 +97,12 @@ void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
     else
     {
         GET_CHILD_PTR(node, Decl, 0);
-        vector<ir::Instruction *> buffer;
-        ANALYSIS(node, Decl, 0);
-        TODO
+        if (node)
+        {
+            vector<ir::Instruction *> buffer;
+            ANALYSIS(node1, Decl, 0);
+            TODO
+        }
     }
     if (root->children.size() > 1)
     {
@@ -137,24 +146,37 @@ void Analyzer::analysisConstInitVal(ConstInitVal *root, vector<ir::Instruction *
 void Analyzer::analysisFuncDef(FuncDef *root, ir::Function &func)
 {
     {
-        auto buffer = func.returnType;
-        ANALYSIS(node1, FuncType, 0);
+        auto &buffer = func.returnType;
+        ANALYSIS(node, FuncType, 0);
     }
     {
-        auto buffer = func.name;
-        ANALYSIS(node2, Term, 1);
+        auto &buffer = func.name;
+        ANALYSIS(node, Term, 1);
     }
     GET_CHILD_PTR(node, FuncFParams, 3);
     if (node)
     {
-        auto buffer = func.ParameterList;
-        ANALYSIS(node1, FuncFParams, 3);
+        auto &buffer = func.ParameterList;
+        ANALYSIS(node, FuncFParams, 3);
     }
-    auto buffer = func.InstVec;
+    auto &buffer = func.InstVec;
     ANALYSIS(node3, Block, root->children.size() - 1);
 }
 void Analyzer::analysisFuncType(FuncType *root, ir::Type &buffer)
 {
+    GET_CHILD_PTR(node, Term, 0);
+    if (node->token.type == TokenType::INTTK)
+    {
+        buffer = ir::Type::Int;
+    }
+    else if (node->token.type == TokenType::VOIDTK)
+    {
+        buffer = ir::Type::null;
+    }
+    else if (node->token.type == TokenType::FLOATTK)
+    {
+        buffer = ir::Type::Float;
+    }
 }
 void Analyzer::analysisFuncFParam(FuncFParam *root, vector<ir::Instruction *> &buffer)
 {
@@ -185,16 +207,18 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
 {
     ir::Instruction inst;
     insts.push_back(&inst);
-    GET_CHILD_PTR(node, Term, 1);
-    if (node)
     {
-        if (node->token.type == TokenType::ASSIGN)
+        GET_CHILD_PTR(node, Term, 1);
+        if (node)
         {
-            inst.op = Operator::def;
-            auto buffer = inst.des;
-            ANALYSIS(node1, LVal, 0);
-            buffer = inst.op1;
-            ANALYSIS(node2, Exp, 2);
+            if (node->token.type == TokenType::ASSIGN)
+            {
+                inst.op = Operator::def;
+                auto buffer = inst.des;
+                ANALYSIS(node1, LVal, 0);
+                buffer = inst.op1;
+                ANALYSIS(node2, Exp, 2);
+            }
         }
     }
     GET_CHILD_PTR(node, Term, 0);
@@ -218,7 +242,7 @@ void Analyzer::analysisLVal(LVal *root, ir::Operand &buffer)
 }
 void Analyzer::analysisExp(Exp *root, ir::Operand &buffer)
 {
-    TODO
+    ANALYSIS(node,AddExp,0);
 }
 void Analyzer::analysisCond(Cond *root, vector<ir::Instruction *> &buffer)
 {

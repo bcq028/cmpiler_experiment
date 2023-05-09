@@ -135,7 +135,7 @@ namespace frontend
         void analysisUnaryExp(UnaryExp *,vector<ir::Instruction*>&);
         void analysisFuncRParams(FuncRParams *,vector<ir::Instruction*>&);
         void analysisMulExp(MulExp *,vector<ir::Instruction*>&);
-        void analysisAddExp(AddExp *,vector<ir::Instruction*>&);
+        void analysisAddExp(AddExp *,ir::Operand &);
         void analysisRelExp(RelExp *,vector<ir::Instruction*>&);
         void analysisEqExp(EqExp *,vector<ir::Instruction*>&);
         void analysisLAndExp(LAndExp *,vector<ir::Instruction*>&);

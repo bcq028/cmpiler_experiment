@@ -5,11 +5,13 @@
             "label": "build",
             "type": "shell",
             "command": "python3",
-            "args": ["test/build.py"],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+            "args": ["test/build.py"]
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "rm",
+            "args": ["-rf","build/**/*"]
         }
     ]
 }
