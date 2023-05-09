@@ -15,16 +15,22 @@ using ir::Operator;
     {                                                                                             \
         std::cerr << "Error: failed to cast node " << index << " to type " << #type << std::endl; \
     }
-#define ANALYSIS(node, type, index)                              \
-    {                                                            \
-        auto node = dynamic_cast<type *>(root->children[index]); \
-        assert(node);                                            \
-        analysis##type(node, buffer);} 
+#define ANALYSIS(node, type, index)                          \
+                                                             \
+    auto node = dynamic_cast<type *>(root->children[index]); \
+    assert(node);                                            \
+    analysis##type(node, buffer);
 
 #define COPY_EXP_NODE(from, to)              \
     to->is_computable = from->is_computable; \
     to->v = from->v;                         \
     to->t = from->t;
+
+#define STR_ADD(str1, str2) (std::to_string(std::stoi(str1) + std::stoi(str2)))
+#define STR_SUB(str1, str2) (std::to_string(std::stoi(str1) - std::stoi(str2)))
+#define STR_MUL(x, y) (std::to_string(std::stoi(x) * std::stoi(y)))
+#define STR_DIV(x, y) (std::to_string(std::stoi(x) / std::stoi(y)))
+#define STR_MOD(x, y) (std::to_string(std::stoi(x) % std::stoi(y)))
 
 map<std::string, ir::Function *> *frontend::get_lib_funcs()
 {
@@ -213,11 +219,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
         {
             if (node->token.type == TokenType::ASSIGN)
             {
-                inst.op = Operator::def;
-                auto buffer = inst.des;
-                ANALYSIS(node1, LVal, 0);
-                buffer = inst.op1;
-                ANALYSIS(node2, Exp, 2);
+                TODO
             }
         }
     }
@@ -229,41 +231,103 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
             inst.op = Operator::_return;
             if (root->children.size() > 1)
             {
-                auto buffer = inst.op1;
+                auto &buffer = insts;
                 ANALYSIS(node, Exp, 1);
+                GET_CHILD_PTR(node1, Exp, 1);
+                if (node1)
+                {
+                    inst.op1 = node1->v;
+                }
             }
         }
     }
+    insts.push_back(&inst);
 }
 
 void Analyzer::analysisLVal(LVal *root, ir::Operand &buffer)
 {
     TODO
 }
-void Analyzer::analysisExp(Exp *root, ir::Operand &buffer)
+void Analyzer::analysisExp(Exp *root, vector<ir::Instruction *> &buffer)
 {
-    ANALYSIS(node,AddExp,0);
+    ANALYSIS(node, AddExp, 0);
+    GET_CHILD_PTR(node1, AddExp, 0);
+    COPY_EXP_NODE(node1, root);
 }
 void Analyzer::analysisCond(Cond *root, vector<ir::Instruction *> &buffer)
 {
 }
-void Analyzer::analysisNumber(Number *root, vector<ir::Instruction *> &buffer)
+void Analyzer::analysisNumber(Number *root, string &buffer)
 {
+    GET_CHILD_PTR(node,Term,0);
+    root->t=node->token.type==TokenType::INTLTR?ir::Type::Int:ir::Type::Float;
+    root->v=node->token.value;
+    root->is_computable=true;
 }
 void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &buffer)
 {
+    GET_CHILD_PTR(node,Number,0);
+    if(node){
+        string buffer;
+        ANALYSIS(node,Number,0);
+        COPY_EXP_NODE(node,root);
+        return;
+    }
+    GET_CHILD_PTR(node,LVal,0);
+    if(node){
+        TODO
+        return;
+    }
+    ANALYSIS(node1,Exp,1);
+    COPY_EXP_NODE(node1,root);
 }
 void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffer)
 {
+    GET_CHILD_PTR(node,PrimaryExp,0);
+    if(node){
+        ANALYSIS(node1,PrimaryExp,0);
+        COPY_EXP_NODE(node1,root);
+    }
 }
 void Analyzer::analysisFuncRParams(FuncRParams *root, vector<ir::Instruction *> &buffer)
 {
 }
-void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
-{
+
+void Analyzer::analysisMulExp(MulExp* root, vector<ir::Instruction*>& buffer) {
+    GET_CHILD_PTR(node1, UnaryExp, 0);
+    COPY_EXP_NODE(node1, root);
+    for (auto i = 2; i < root->children.size(); i += 2) {
+        ANALYSIS(node, UnaryExp, i);
+        GET_CHILD_PTR(node2, Term, i - 1);
+        if (node2->token.type == TokenType::MULT) {
+            root->v = STR_MUL(root->v, node->v);
+        } else if (node2->token.type == TokenType::DIV) {
+            root->v = STR_DIV(root->v, node->v);
+        } else if (node2->token.type == TokenType::MOD) {
+            root->v = STR_MOD(root->v, node->v);
+        }
+    }
 }
+
 void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
 {
+    GET_CHILD_PTR(node1, MulExp, 0);
+    COPY_EXP_NODE(node1, root);
+    {ANALYSIS(node, MulExp, 0)};
+    for (auto i = 2; i < root->children.size(); i += 2)
+    {
+        ANALYSIS(node, MulExp, i);
+        GET_CHILD_PTR(node2, Term, i - 1);
+
+        if (node2->token.type == TokenType::PLUS)
+        {
+            root->v=STR_ADD(root->v,node->v);
+        }
+        else if (node2->token.type == TokenType::MINU)
+        {
+            root->v=STR_SUB(root->v,node->v);
+        }
+    }
 }
 void Analyzer::analysisRelExp(RelExp *root, vector<ir::Instruction *> &buffer)
 {
@@ -282,4 +346,5 @@ void Analyzer::analysisInitVal(InitVal *root, vector<ir::Instruction *> &buffer)
 }
 void Analyzer::analysisUnaryOp(UnaryOp *root, vector<ir::Instruction *> &buffer)
 {
+   
 }

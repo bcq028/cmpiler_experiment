@@ -128,14 +128,14 @@ namespace frontend
         void analysisBlockItem(BlockItem *,vector<ir::Instruction*>&);
         void analysisStmt(Stmt *,vector<ir::Instruction*>&);
         void analysisLVal(LVal *,ir::Operand&);
-        void analysisExp(Exp *,ir::Operand&);
+        void analysisExp(Exp *,vector<ir::Instruction*>&);
         void analysisCond(Cond *,vector<ir::Instruction*>&);
-        void analysisNumber(Number *,vector<ir::Instruction*>&);
+        void analysisNumber(Number *,string&);
         void analysisPrimaryExp(PrimaryExp *,vector<ir::Instruction*>&);
         void analysisUnaryExp(UnaryExp *,vector<ir::Instruction*>&);
         void analysisFuncRParams(FuncRParams *,vector<ir::Instruction*>&);
         void analysisMulExp(MulExp *,vector<ir::Instruction*>&);
-        void analysisAddExp(AddExp *,ir::Operand &);
+        void analysisAddExp(AddExp *,vector<ir::Instruction*>&);
         void analysisRelExp(RelExp *,vector<ir::Instruction*>&);
         void analysisEqExp(EqExp *,vector<ir::Instruction*>&);
         void analysisLAndExp(LAndExp *,vector<ir::Instruction*>&);
