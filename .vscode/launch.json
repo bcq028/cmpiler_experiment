@@ -10,7 +10,7 @@
           "${workspaceFolder}/test/testcase/basic/00_main.sy",
           "-s2",
           "-o",
-          "../aaa.txt"
+          "./aaa.txt"
         ],
         "cwd": "${workspaceFolder}",
         "MIMode": "gdb",

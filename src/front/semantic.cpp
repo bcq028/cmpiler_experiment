@@ -194,7 +194,7 @@ void Analyzer::analysisBlock(Block *root, vector<ir::Instruction *> &insts)
 {
     for (auto i = 1; i < root->children.size() - 1; ++i)
     {
-        auto buffer = insts;
+        auto &buffer = insts;
         ANALYSIS(node, BlockItem, i);
     }
 }
@@ -211,8 +211,8 @@ void Analyzer::analysisBlockItem(BlockItem *root, vector<ir::Instruction *> &buf
 }
 void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
 {
-    ir::Instruction inst;
-    insts.push_back(&inst);
+    ir::Instruction *inst=new ir::Instruction();
+    insts.push_back(inst);
     {
         GET_CHILD_PTR(node, Term, 1);
         if (node)
@@ -228,7 +228,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
     {
         if (node->token.type == TokenType::RETURNTK)
         {
-            inst.op = Operator::_return;
+            inst->op = Operator::_return;
             if (root->children.size() > 1)
             {
                 auto &buffer = insts;
@@ -236,12 +236,15 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
                 GET_CHILD_PTR(node1, Exp, 1);
                 if (node1)
                 {
-                    inst.op1 = node1->v;
+                    if(node1->t==Type::IntLiteral || node1->t==Type::FloatLiteral){
+                        inst->op1=Operand(node1->v,node1->t);
+                    }else{
+                        inst->op1=symbol_table.get_operand(node1->v);
+                    }
                 }
             }
         }
     }
-    insts.push_back(&inst);
 }
 
 void Analyzer::analysisLVal(LVal *root, ir::Operand &buffer)
@@ -259,51 +262,61 @@ void Analyzer::analysisCond(Cond *root, vector<ir::Instruction *> &buffer)
 }
 void Analyzer::analysisNumber(Number *root, string &buffer)
 {
-    GET_CHILD_PTR(node,Term,0);
-    root->t=node->token.type==TokenType::INTLTR?ir::Type::Int:ir::Type::Float;
-    root->v=node->token.value;
-    root->is_computable=true;
+    GET_CHILD_PTR(node, Term, 0);
+    root->t = node->token.type == TokenType::INTLTR ? ir::Type::IntLiteral : ir::Type::FloatLiteral;
+    root->v = node->token.value;
+    root->is_computable = true;
 }
 void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &buffer)
 {
-    GET_CHILD_PTR(node,Number,0);
-    if(node){
+    GET_CHILD_PTR(node, Number, 0);
+    if (node)
+    {
         string buffer;
-        ANALYSIS(node,Number,0);
-        COPY_EXP_NODE(node,root);
+        ANALYSIS(node, Number, 0);
+        COPY_EXP_NODE(node, root);
         return;
     }
-    GET_CHILD_PTR(node,LVal,0);
-    if(node){
-        TODO
-        return;
+    GET_CHILD_PTR(node1, LVal, 0);
+    if (node1)
+    {
+        TODO return;
     }
-    ANALYSIS(node1,Exp,1);
-    COPY_EXP_NODE(node1,root);
+    ANALYSIS(node2, Exp, 1);
+    COPY_EXP_NODE(node2, root);
 }
 void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffer)
 {
-    GET_CHILD_PTR(node,PrimaryExp,0);
-    if(node){
-        ANALYSIS(node1,PrimaryExp,0);
-        COPY_EXP_NODE(node1,root);
+    GET_CHILD_PTR(node, PrimaryExp, 0);
+    if (node)
+    {
+        ANALYSIS(node1, PrimaryExp, 0);
+        COPY_EXP_NODE(node1, root);
     }
 }
 void Analyzer::analysisFuncRParams(FuncRParams *root, vector<ir::Instruction *> &buffer)
 {
 }
 
-void Analyzer::analysisMulExp(MulExp* root, vector<ir::Instruction*>& buffer) {
+void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
+{
+    ANALYSIS(node, UnaryExp, 0);
     GET_CHILD_PTR(node1, UnaryExp, 0);
     COPY_EXP_NODE(node1, root);
-    for (auto i = 2; i < root->children.size(); i += 2) {
+    for (auto i = 2; i < root->children.size(); i += 2)
+    {
         ANALYSIS(node, UnaryExp, i);
         GET_CHILD_PTR(node2, Term, i - 1);
-        if (node2->token.type == TokenType::MULT) {
+        if (node2->token.type == TokenType::MULT)
+        {
             root->v = STR_MUL(root->v, node->v);
-        } else if (node2->token.type == TokenType::DIV) {
+        }
+        else if (node2->token.type == TokenType::DIV)
+        {
             root->v = STR_DIV(root->v, node->v);
-        } else if (node2->token.type == TokenType::MOD) {
+        }
+        else if (node2->token.type == TokenType::MOD)
+        {
             root->v = STR_MOD(root->v, node->v);
         }
     }
@@ -311,9 +324,9 @@ void Analyzer::analysisMulExp(MulExp* root, vector<ir::Instruction*>& buffer) {
 
 void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
 {
+    {ANALYSIS(node, MulExp, 0)};
     GET_CHILD_PTR(node1, MulExp, 0);
     COPY_EXP_NODE(node1, root);
-    {ANALYSIS(node, MulExp, 0)};
     for (auto i = 2; i < root->children.size(); i += 2)
     {
         ANALYSIS(node, MulExp, i);
@@ -321,11 +334,11 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
 
         if (node2->token.type == TokenType::PLUS)
         {
-            root->v=STR_ADD(root->v,node->v);
+            root->v = STR_ADD(root->v, node->v);
         }
         else if (node2->token.type == TokenType::MINU)
         {
-            root->v=STR_SUB(root->v,node->v);
+            root->v = STR_SUB(root->v, node->v);
         }
     }
 }
@@ -346,5 +359,4 @@ void Analyzer::analysisInitVal(InitVal *root, vector<ir::Instruction *> &buffer)
 }
 void Analyzer::analysisUnaryOp(UnaryOp *root, vector<ir::Instruction *> &buffer)
 {
-   
 }

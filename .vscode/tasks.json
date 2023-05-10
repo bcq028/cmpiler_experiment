@@ -4,8 +4,8 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "python3",
-            "args": ["test/build.py"]
+            "command": "echo",
+            "args": ["cd test && py build.py"]
         },
         {
             "label": "clean",
