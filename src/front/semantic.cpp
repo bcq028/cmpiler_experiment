@@ -51,26 +51,48 @@ map<std::string, ir::Function *> *frontend::get_lib_funcs()
 
 void frontend::SymbolTable::add_scope(Block *node)
 {
-    TODO;
+    ScopeInfo s;
+    s.cnt = this->scope_stack.size() + 1;
+    this->scope_stack.push_back(s);
 }
 void frontend::SymbolTable::exit_scope()
 {
-    TODO;
+    this->scope_stack.pop_back();
 }
 
 string frontend::SymbolTable::get_scoped_name(string id) const
 {
-    TODO;
+    string ret = id + std::to_string(this->scope_stack.back().cnt);
+    return ret;
+}
+void frontend::SymbolTable::add_symbol(string id,vector<int> dimension)
+{
+    if (!this->scope_stack.back().table.count(get_scoped_name(id)))
+    {
+        STE ste;
+        ste.operand = Operand(get_scoped_name(id));
+        ste.dimension=dimension;
+        ScopeInfo &sc = const_cast<ScopeInfo &>(scope_stack[this->scope_stack.size() - 1]);
+        sc.table[get_scoped_name(id)] = ste;
+    }
 }
 
 Operand frontend::SymbolTable::get_operand(string id) const
 {
-    TODO;
+    return this->get_ste(id).operand;
 }
 
 frontend::STE frontend::SymbolTable::get_ste(string id) const
 {
-    TODO;
+    auto it = this->scope_stack.back().table.find(get_scoped_name(id));
+    if (it != this->scope_stack.back().table.end())
+    {
+        return it->second;
+    }
+    else
+    {
+        assert(0 && "cannot find symbol");
+    }
 }
 
 frontend::Analyzer::Analyzer() : tmp_cnt(0), symbol_table()
@@ -133,15 +155,29 @@ void Analyzer::analysisConstDecl(ConstDecl *root, vector<ir::Instruction *> &buf
 }
 void Analyzer::analysisVarDecl(VarDecl *root, vector<ir::Instruction *> &buffer)
 {
+    ir::Instruction *inst = new ir::Instruction();
+    ANALYSIS(node, BType, 0);
+    if (node->t == Type::Int)
+    {
+        inst->op = Operator::def;
+    }
+    else
+    {
+        inst->op = Operator::fdef;
+    }
+    TODO
 }
 void Analyzer::analysisBType(BType *root, vector<ir::Instruction *> &buffer)
 {
+    GET_CHILD_PTR(node, Term, 0);
+    root->t = node->token.type == TokenType::INTTK ? Type::Int : Type::Float;
 }
 void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffer)
 {
 }
 void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
 {
+    root->arr_name = dynamic_cast<Term *>(root->children[0])->token.value;
 }
 void Analyzer::analysisConstExp(ConstExp *root, vector<ir::Instruction *> &buffer)
 {
@@ -211,7 +247,7 @@ void Analyzer::analysisBlockItem(BlockItem *root, vector<ir::Instruction *> &buf
 }
 void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
 {
-    ir::Instruction *inst=new ir::Instruction();
+    ir::Instruction *inst = new ir::Instruction();
     insts.push_back(inst);
     {
         GET_CHILD_PTR(node, Term, 1);
@@ -236,10 +272,13 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
                 GET_CHILD_PTR(node1, Exp, 1);
                 if (node1)
                 {
-                    if(node1->t==Type::IntLiteral || node1->t==Type::FloatLiteral){
-                        inst->op1=Operand(node1->v,node1->t);
-                    }else{
-                        inst->op1=symbol_table.get_operand(node1->v);
+                    if (node1->t == Type::IntLiteral || node1->t == Type::FloatLiteral)
+                    {
+                        inst->op1 = Operand(node1->v, node1->t);
+                    }
+                    else
+                    {
+                        inst->op1 = symbol_table.get_operand(node1->v);
                     }
                 }
             }
@@ -356,6 +395,16 @@ void Analyzer::analysisLOrExp(LOrExp *root, vector<ir::Instruction *> &buffer)
 }
 void Analyzer::analysisInitVal(InitVal *root, vector<ir::Instruction *> &buffer)
 {
+    GET_CHILD_PTR(exp, Exp, 0);
+    if (exp)
+    {
+        ANALYSIS(exp1, Exp, 0);
+        COPY_EXP_NODE(exp1, root);
+    }
+    else
+    {
+        TODO
+    }
 }
 void Analyzer::analysisUnaryOp(UnaryOp *root, vector<ir::Instruction *> &buffer)
 {

@@ -7,7 +7,7 @@
         "request": "launch",
         "program": "${workspaceFolder}/bin/compiler",
         "args": [
-          "${workspaceFolder}/test/testcase/basic/00_main.sy",
+          "${workspaceFolder}/test/testcase/basic/01_var_defn2.sy",
           "-s2",
           "-o",
           "./aaa.txt"
