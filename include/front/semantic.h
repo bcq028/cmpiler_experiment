@@ -55,7 +55,7 @@ namespace frontend
         string get_scoped_name(string id) const;
         ir::Operand get_operand(string id) const;
         STE get_ste(string id) const;
-        void add_symbol(string id,vector<int> dimension);
+        void add_symbol(string id,vector<int>* dimension);
     };
 
     // singleton class

@@ -1,5 +1,4 @@
 #include "front/semantic.h"
-
 #include <cassert>
 #include <iostream>
 using ir::Function;
@@ -65,13 +64,16 @@ string frontend::SymbolTable::get_scoped_name(string id) const
     string ret = id + std::to_string(this->scope_stack.back().cnt);
     return ret;
 }
-void frontend::SymbolTable::add_symbol(string id,vector<int> dimension)
+void frontend::SymbolTable::add_symbol(string id, vector<int> *dimension)
 {
     if (!this->scope_stack.back().table.count(get_scoped_name(id)))
     {
         STE ste;
         ste.operand = Operand(get_scoped_name(id));
-        ste.dimension=dimension;
+        if (dimension != nullptr)
+        {
+            ste.dimension = *dimension;
+        }
         ScopeInfo &sc = const_cast<ScopeInfo &>(scope_stack[this->scope_stack.size() - 1]);
         sc.table[get_scoped_name(id)] = ste;
     }
@@ -155,17 +157,14 @@ void Analyzer::analysisConstDecl(ConstDecl *root, vector<ir::Instruction *> &buf
 }
 void Analyzer::analysisVarDecl(VarDecl *root, vector<ir::Instruction *> &buffer)
 {
-    ir::Instruction *inst = new ir::Instruction();
     ANALYSIS(node, BType, 0);
-    if (node->t == Type::Int)
-    {
-        inst->op = Operator::def;
+    root->t=node->t;
+    ANALYSIS(node1,VarDef,1);
+    for(auto i=2;i<root->children.size();i+=2){
+        if(dynamic_cast<Term*>(root->children[i])->token.type==TokenType::COMMA){
+            ANALYSIS(node,VarDef,i+1);
+        }
     }
-    else
-    {
-        inst->op = Operator::fdef;
-    }
-    TODO
 }
 void Analyzer::analysisBType(BType *root, vector<ir::Instruction *> &buffer)
 {
@@ -178,6 +177,28 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
 void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
 {
     root->arr_name = dynamic_cast<Term *>(root->children[0])->token.value;
+    vector<int> dimensions;
+
+    for (auto i = 1; i < root->children.size(); i += 3)
+    {
+        if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::LBRACK)
+        {
+            ANALYSIS(node, ConstExp, i + 1);
+            dimensions.push_back(stoi(node->v));
+        }
+        else if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::ASSIGN)
+        {
+            ANALYSIS(node, InitVal, i + 1);
+            ir::Instruction *init = new ir::Instruction();
+            init->des = this->symbol_table.get_operand(root->arr_name);
+            init->op = symbol_table.get_operand(root->arr_name).type == Type::Int
+                           ? Operator::mov
+                           : Operator::fmov;
+            init->op1 = node->v;
+            buffer.push_back(init);
+        }
+    }
+    this->symbol_table.add_symbol(root->arr_name, nullptr);
 }
 void Analyzer::analysisConstExp(ConstExp *root, vector<ir::Instruction *> &buffer)
 {
@@ -228,11 +249,13 @@ void Analyzer::analysisFuncFParams(FuncFParams *root, vector<ir::Operand> &param
 }
 void Analyzer::analysisBlock(Block *root, vector<ir::Instruction *> &insts)
 {
+    this->symbol_table.add_scope(root);
     for (auto i = 1; i < root->children.size() - 1; ++i)
     {
         auto &buffer = insts;
         ANALYSIS(node, BlockItem, i);
     }
+    this->symbol_table.exit_scope();
 }
 void Analyzer::analysisBlockItem(BlockItem *root, vector<ir::Instruction *> &buffer)
 {
