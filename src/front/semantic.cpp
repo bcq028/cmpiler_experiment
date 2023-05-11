@@ -51,6 +51,10 @@ map<std::string, ir::Function *> *frontend::get_lib_funcs()
 void frontend::SymbolTable::add_scope(Block *node)
 {
     ScopeInfo s;
+    if (node != nullptr)
+    {
+        s.name = 'block';
+    }
     s.cnt = this->scope_stack.size() + 1;
     this->scope_stack.push_back(s);
 }
@@ -66,6 +70,7 @@ string frontend::SymbolTable::get_scoped_name(string id) const
 }
 void frontend::Analyzer::add_symbol(string id, vector<int> *dimension)
 {
+    this->tmp_cnt++;
     if (!this->symbol_table.scope_stack.back().table.count(this->symbol_table.get_scoped_name(id)))
     {
         STE ste;
@@ -77,17 +82,19 @@ void frontend::Analyzer::add_symbol(string id, vector<int> *dimension)
         ScopeInfo &sc = const_cast<ScopeInfo &>(this->symbol_table.scope_stack[this->symbol_table.scope_stack.size() - 1]);
         sc.table[this->symbol_table.get_scoped_name(id)] = ste;
 
-        int len=1;
-        if(dimension){
-            for(auto i=0;i<dimension->size();++i){
-                len*=(*dimension)[i];
+        int len = 1;
+        if (dimension)
+        {
+            for (auto i = 0; i < dimension->size(); ++i)
+            {
+                len *= (*dimension)[i];
             }
         }
 
-        if(this->symbol_table.scope_stack.size()==1){
-            ir::GlobalVal* gv= len==1?
-            new ir::GlobalVal(this->symbol_table.get_operand(id))
-            :new ir::GlobalVal(this->symbol_table.get_operand(id),len);
+        if (this->symbol_table.scope_stack.back().name!="block")
+        {
+            ir::GlobalVal *gv = len == 1 ? new ir::GlobalVal(this->symbol_table.get_operand(id))
+                                         : new ir::GlobalVal(this->symbol_table.get_operand(id), len);
             this->cur_program->globalVal.push_back(*gv);
         }
     }
@@ -117,9 +124,11 @@ frontend::Analyzer::Analyzer() : tmp_cnt(0), symbol_table()
 
 ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 {
-    ir::Program* buffer=new ir::Program();
-    this->cur_program=buffer;
+    ir::Program *buffer = new ir::Program();
+    this->cur_program = buffer;
+    this->symbol_table.add_scope(nullptr);
     analysisCompUnit(root, *buffer);
+    this->symbol_table.exit_scope();
     return *buffer;
 }
 
@@ -141,20 +150,19 @@ void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
     }
     else
     {
-        if (this->symbol_table.scope_stack.size() == 0)
-        {
-            // has global values
-            this->symbol_table.add_scope(nullptr);
-        }
         vector<ir::Instruction *> buffer;
         ANALYSIS(node, Decl, 0);
-        this->symbol_table.exit_scope();
     }
     if (root->children.size() > 1)
     {
         ir::Program buffer;
         ANALYSIS(node, CompUnit, 1);
-        TODO
+        for(auto func:buffer.functions){
+            this->cur_program->addFunction(func);
+        }
+        for(auto val:buffer.globalVal){
+            this->cur_program->globalVal.push_back(val);
+        }
     }
 }
 void Analyzer::analysisDecl(Decl *root, vector<ir::Instruction *> &buffer)
@@ -195,7 +203,7 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
 void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
 {
     root->arr_name = dynamic_cast<Term *>(root->children[0])->token.value;
-    vector<int> *dimensions=new vector<int>();
+    vector<int> *dimensions = new vector<int>();
     this->add_symbol(root->arr_name, nullptr);
     for (auto i = 1; i < root->children.size(); i += 3)
     {
@@ -216,7 +224,7 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
             buffer.push_back(init);
         }
     }
-    this->symbol_table.get_ste(root->arr_name).dimension=*dimensions;
+    this->symbol_table.get_ste(root->arr_name).dimension = *dimensions;
 }
 void Analyzer::analysisConstExp(ConstExp *root, vector<ir::Instruction *> &buffer)
 {
@@ -327,9 +335,20 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
     }
 }
 
-void Analyzer::analysisLVal(LVal *root, ir::Operand &buffer)
+void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
 {
-    TODO
+    string buffer;
+    ANALYSIS(node, Term, 0);
+    root->v = this->symbol_table.get_operand(buffer).name;
+    root->t = this->symbol_table.get_operand(buffer).type;
+    vector<int> dimen;
+    for (auto i = 1; i < root->children.size(); i += 3)
+    {
+        auto &buffer = insts;
+        ANALYSIS(node, Exp, i + 1);
+        dimen.push_back(stoi(node->v));
+    }
+    // TODO root->i index
 }
 void Analyzer::analysisExp(Exp *root, vector<ir::Instruction *> &buffer)
 {
@@ -360,7 +379,8 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
     GET_CHILD_PTR(node1, LVal, 0);
     if (node1)
     {
-        TODO return;
+        ANALYSIS(node, LVal, 0);
+        return;
     }
     ANALYSIS(node2, Exp, 1);
     COPY_EXP_NODE(node2, root);

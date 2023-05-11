@@ -95,7 +95,7 @@ namespace frontend
         void analysisBlock(Block *,vector<ir::Instruction*>&);
         void analysisBlockItem(BlockItem *,vector<ir::Instruction*>&);
         void analysisStmt(Stmt *,vector<ir::Instruction*>&);
-        void analysisLVal(LVal *,ir::Operand&);
+        void analysisLVal(LVal *,vector<ir::Instruction*>&);
         void analysisExp(Exp *,vector<ir::Instruction*>&);
         void analysisCond(Cond *,vector<ir::Instruction*>&);
         void analysisNumber(Number *,string&);
