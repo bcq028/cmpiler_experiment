@@ -1,22 +1,21 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-      {
-        "name": "debugger",
-        "type": "cppdbg",
-        "request": "launch",
-        "program": "${workspaceFolder}/bin/compiler",
-        "args": [
-          "${workspaceFolder}/test/testcase/basic/01_var_defn2.sy",
-          "-s2",
-          "-o",
-          "./aaa.txt"
-        ],
-        "cwd": "${workspaceFolder}",
-        "MIMode": "gdb",
-        "miDebuggerPath": "gdb",
-        "preLaunchTask": "build",
-        "postDebugTask": "clean"
-      }
-    ]
-  }
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "debugger",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/compiler",
+      "args": [
+        "${workspaceFolder}/test/testcase/basic/01_var_defn2.sy",
+        "-s2",
+        "-o",
+        "./aaa.txt"
+      ],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "preLaunchTask": "build"
+    }
+  ]
+}

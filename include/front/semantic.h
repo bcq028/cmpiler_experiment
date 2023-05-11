@@ -55,7 +55,6 @@ namespace frontend
         string get_scoped_name(string id) const;
         ir::Operand get_operand(string id) const;
         STE get_ste(string id) const;
-        void add_symbol(string id,vector<int>* dimension);
     };
 
     // singleton class
@@ -73,9 +72,12 @@ namespace frontend
         // analysis functions
         ir::Program get_ir_program(CompUnit *);
 
+        ir::Program* cur_program;
+
         // reject copy & assignment
         Analyzer(const Analyzer &) = delete;
         Analyzer &operator=(const Analyzer &) = delete;
+        void add_symbol(string id,vector<int>* dimension);
         void analysisTerm(Term*,string&);
         void analysisCompUnit(CompUnit *,ir::Program&);
         void analysisDecl(Decl *,vector<ir::Instruction*>&);
