@@ -65,16 +65,16 @@ void frontend::SymbolTable::exit_scope()
 
 string frontend::SymbolTable::get_scoped_name(string id) const
 {
-    string ret = id + std::to_string(this->scope_stack.back().cnt);
+    string ret = id + std::to_string(this->scope_stack.size()) + std::to_string(this->scope_stack.back().cnt);
     return ret;
 }
-void frontend::Analyzer::add_symbol(string id, vector<int> *dimension)
+void frontend::Analyzer::add_symbol(string id, vector<int> *dimension,Type t)
 {
     this->tmp_cnt++;
     if (!this->symbol_table.scope_stack.back().table.count(this->symbol_table.get_scoped_name(id)))
     {
         STE ste;
-        ste.operand = Operand(this->symbol_table.get_scoped_name(id));
+        ste.operand = Operand(this->symbol_table.get_scoped_name(id),t);
         if (dimension != nullptr)
         {
             ste.dimension = *dimension;
@@ -91,7 +91,7 @@ void frontend::Analyzer::add_symbol(string id, vector<int> *dimension)
             }
         }
 
-        if (this->symbol_table.scope_stack.back().name!="block")
+        if (this->symbol_table.scope_stack.back().name != "block")
         {
             ir::GlobalVal *gv = len == 1 ? new ir::GlobalVal(this->symbol_table.get_operand(id))
                                          : new ir::GlobalVal(this->symbol_table.get_operand(id), len);
@@ -100,12 +100,12 @@ void frontend::Analyzer::add_symbol(string id, vector<int> *dimension)
     }
 }
 
-Operand frontend::SymbolTable::get_operand(string id) const
+Operand &frontend::SymbolTable::get_operand(string id)
 {
     return this->get_ste(id).operand;
 }
 
-frontend::STE frontend::SymbolTable::get_ste(string id) const
+frontend::STE &frontend::SymbolTable::get_ste(string id)
 {
     auto it = this->scope_stack.back().table.find(get_scoped_name(id));
     if (it != this->scope_stack.back().table.end())
@@ -125,10 +125,23 @@ frontend::Analyzer::Analyzer() : tmp_cnt(0), symbol_table()
 ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 {
     ir::Program *buffer = new ir::Program();
+    ir::Function *globalFunc=new ir::Function("global", ir::Type::null);
     this->cur_program = buffer;
     this->symbol_table.add_scope(nullptr);
     analysisCompUnit(root, *buffer);
     this->symbol_table.exit_scope();
+    for(auto inst:this->g_init_inst){
+        globalFunc->addInst(inst);
+    }
+    this->cur_program->addFunction(*globalFunc);
+    ir::CallInst* callGlobal=new ir::CallInst(ir::Operand("global",ir::Type::null),
+                               ir::Operand("t0",ir::Type::null));
+    for(auto& func:buffer->functions){
+        if(func.name=="main"){
+            func.InstVec.insert(func.InstVec.begin(),callGlobal);
+            break;
+        }
+    }
     return *buffer;
 }
 
@@ -150,17 +163,19 @@ void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
     }
     else
     {
-        vector<ir::Instruction *> buffer;
+        vector<ir::Instruction *>& buffer=this->g_init_inst;
         ANALYSIS(node, Decl, 0);
     }
     if (root->children.size() > 1)
     {
         ir::Program buffer;
         ANALYSIS(node, CompUnit, 1);
-        for(auto func:buffer.functions){
+        for (auto func : buffer.functions)
+        {
             this->cur_program->addFunction(func);
         }
-        for(auto val:buffer.globalVal){
+        for (auto val : buffer.globalVal)
+        {
             this->cur_program->globalVal.push_back(val);
         }
     }
@@ -184,11 +199,13 @@ void Analyzer::analysisVarDecl(VarDecl *root, vector<ir::Instruction *> &buffer)
     ANALYSIS(node, BType, 0);
     root->t = node->t;
     ANALYSIS(node1, VarDef, 1);
+    this->symbol_table.get_operand(node1->arr_name).type = root->t;
     for (auto i = 2; i < root->children.size(); i += 2)
     {
         if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::COMMA)
         {
             ANALYSIS(node, VarDef, i + 1);
+            this->symbol_table.get_operand(node->arr_name).type = root->t;
         }
     }
 }
@@ -204,7 +221,6 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
 {
     root->arr_name = dynamic_cast<Term *>(root->children[0])->token.value;
     vector<int> *dimensions = new vector<int>();
-    this->add_symbol(root->arr_name, nullptr);
     for (auto i = 1; i < root->children.size(); i += 3)
     {
         if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::LBRACK)
@@ -212,7 +228,16 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
             ANALYSIS(node, ConstExp, i + 1);
             dimensions->push_back(stoi(node->v));
         }
-        else if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::ASSIGN)
+        else
+        {
+            break;
+        }
+    }
+    this->add_symbol(root->arr_name, dimensions,dynamic_cast<VarDecl*>(root->parent)->t);
+
+    for (auto i = 1; i < root->children.size(); i += 3)
+    {
+        if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::ASSIGN)
         {
             ANALYSIS(node, InitVal, i + 1);
             ir::Instruction *init = new ir::Instruction();

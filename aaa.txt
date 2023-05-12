@@ -1,3 +1,13 @@
+int main()
+	0: call t0, global()
+	1: return 0
+end
+
+void global()
+	0: mov a11, 3
+	1: mov b11, 5
+end
+
 GVT:
-	a1 void 0
-	b1 void 0
+	a11 int 0
+	b11 int 0
