@@ -1,0 +1,16 @@
+int main()
+	0: call t0, global()
+	1: alloc a_2, 8
+	2: fmov a_2, 
+	3: alloc b_2, 8
+	4: fmov b_2,  1 2 3 4 5 6 7 8
+	5: add random_0, b_2, b_2
+	6: add random_1, random_0, b_2
+	7: add random_2, random_1, b_2
+	8: return random_2
+end
+
+void global()
+end
+
+GVT:
