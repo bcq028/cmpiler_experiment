@@ -339,20 +339,19 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
         if (node->token.type == TokenType::RETURNTK)
         {
             inst->op = Operator::_return;
-            if (root->children.size() > 1)
+            if (root->children.size() > 2)
             {
                 auto &buffer = insts;
-                ANALYSIS(node, Exp, 1);
-                GET_CHILD_PTR(node1, Exp, 1);
-                if (node1)
+                ANALYSIS(expNode, Exp, 1);
+                if (expNode)
                 {
-                    if (node1->t == Type::IntLiteral || node1->t == Type::FloatLiteral)
+                    if (expNode->t == Type::IntLiteral || expNode->t == Type::FloatLiteral)
                     {
-                        inst->op1 = Operand(node1->v, node1->t);
+                        inst->op1 = Operand(expNode->v, expNode->t);
                     }
                     else
                     {
-                        inst->op1 = symbol_table.get_operand(node1->v);
+                        inst->op1 = symbol_table.get_operand(expNode->v);
                     }
                 }
             }
