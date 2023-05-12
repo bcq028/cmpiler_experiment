@@ -25,6 +25,13 @@ using ir::Operator;
     to->v = from->v;                         \
     to->t = from->t;
 
+#define GET_RANDOM_NAM() \
+    []() -> std::string { \
+        static int counter = 0; \
+        return "random_" + std::to_string(counter++); \
+    }()
+
+
 #define STR_ADD(str1, str2) (std::to_string(std::stoi(str1) + std::stoi(str2)))
 #define STR_SUB(str1, str2) (std::to_string(std::stoi(str1) - std::stoi(str2)))
 #define STR_MUL(x, y) (std::to_string(std::stoi(x) * std::stoi(y)))
@@ -53,7 +60,7 @@ void frontend::SymbolTable::add_scope(Block *node)
     ScopeInfo s;
     if (node != nullptr)
     {
-        s.name = 'block';
+        s.name = "block";
     }
     s.cnt = this->scope_stack.size() + 1;
     this->scope_stack.push_back(s);
@@ -65,22 +72,32 @@ void frontend::SymbolTable::exit_scope()
 
 string frontend::SymbolTable::get_scoped_name(string id) const
 {
-    string ret = id + std::to_string(this->scope_stack.size()) + std::to_string(this->scope_stack.back().cnt);
-    return ret;
+    for (auto i = this->scope_stack.size() - 1; i >= 0; i--)
+    {
+        auto &table = this->scope_stack[i].table;
+        for (auto &&iter : table)
+        {
+            if (iter.second.operand.name.substr(0, id.size()) == id)
+            {
+                return iter.second.operand.name;
+            }
+        }
+    }
+    assert(0 && "symbol not found error");
 }
-void frontend::Analyzer::add_symbol(string id, vector<int> *dimension,Type t)
+void frontend::Analyzer::add_symbol(string id, vector<int> *dimension, Type t)
 {
     this->tmp_cnt++;
-    if (!this->symbol_table.scope_stack.back().table.count(this->symbol_table.get_scoped_name(id)))
+    if (!this->symbol_table.scope_stack.back().table.count(id))
     {
         STE ste;
-        ste.operand = Operand(this->symbol_table.get_scoped_name(id),t);
+        ste.operand = Operand(id, t);
         if (dimension != nullptr)
         {
             ste.dimension = *dimension;
         }
         ScopeInfo &sc = const_cast<ScopeInfo &>(this->symbol_table.scope_stack[this->symbol_table.scope_stack.size() - 1]);
-        sc.table[this->symbol_table.get_scoped_name(id)] = ste;
+        sc.table[id] = ste;
 
         int len = 1;
         if (dimension)
@@ -90,6 +107,8 @@ void frontend::Analyzer::add_symbol(string id, vector<int> *dimension,Type t)
                 len *= (*dimension)[i];
             }
         }
+
+        // 在 IR 测评机中，认为一个出现在 des 位置的且没有被分配空间的变量即为一个新的变量，会自动为其分配空间
 
         if (this->symbol_table.scope_stack.back().name != "block")
         {
@@ -107,15 +126,18 @@ Operand &frontend::SymbolTable::get_operand(string id)
 
 frontend::STE &frontend::SymbolTable::get_ste(string id)
 {
-    auto it = this->scope_stack.back().table.find(get_scoped_name(id));
-    if (it != this->scope_stack.back().table.end())
+    for (auto i = this->scope_stack.size() - 1; i >= 0; i--)
     {
-        return it->second;
+        auto &table = this->scope_stack[i].table;
+        for (auto &&iter : table)
+        {
+            if (iter.second.operand.name == id)
+            {
+                return iter.second;
+            }
+        }
     }
-    else
-    {
-        assert(0 && "cannot find symbol");
-    }
+    assert(0 && "symbol not found error");
 }
 
 frontend::Analyzer::Analyzer() : tmp_cnt(0), symbol_table()
@@ -125,20 +147,23 @@ frontend::Analyzer::Analyzer() : tmp_cnt(0), symbol_table()
 ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 {
     ir::Program *buffer = new ir::Program();
-    ir::Function *globalFunc=new ir::Function("global", ir::Type::null);
+    ir::Function *globalFunc = new ir::Function("global", ir::Type::null);
     this->cur_program = buffer;
     this->symbol_table.add_scope(nullptr);
     analysisCompUnit(root, *buffer);
     this->symbol_table.exit_scope();
-    for(auto inst:this->g_init_inst){
+    for (auto inst : this->g_init_inst)
+    {
         globalFunc->addInst(inst);
     }
     this->cur_program->addFunction(*globalFunc);
-    ir::CallInst* callGlobal=new ir::CallInst(ir::Operand("global",ir::Type::null),
-                               ir::Operand("t0",ir::Type::null));
-    for(auto& func:buffer->functions){
-        if(func.name=="main"){
-            func.InstVec.insert(func.InstVec.begin(),callGlobal);
+    ir::CallInst *callGlobal = new ir::CallInst(ir::Operand("global", ir::Type::null),
+                                                ir::Operand("t0", ir::Type::null));
+    for (auto &func : buffer->functions)
+    {
+        if (func.name == "main")
+        {
+            func.InstVec.insert(func.InstVec.begin(), callGlobal);
             break;
         }
     }
@@ -163,7 +188,7 @@ void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
     }
     else
     {
-        vector<ir::Instruction *>& buffer=this->g_init_inst;
+        vector<ir::Instruction *> &buffer = this->g_init_inst;
         ANALYSIS(node, Decl, 0);
     }
     if (root->children.size() > 1)
@@ -219,7 +244,7 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
 }
 void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
 {
-    root->arr_name = dynamic_cast<Term *>(root->children[0])->token.value;
+    root->arr_name = dynamic_cast<Term *>(root->children[0])->token.value + "_" + std::to_string(this->symbol_table.scope_stack.size());
     vector<int> *dimensions = new vector<int>();
     for (auto i = 1; i < root->children.size(); i += 3)
     {
@@ -233,7 +258,7 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
             break;
         }
     }
-    this->add_symbol(root->arr_name, dimensions,dynamic_cast<VarDecl*>(root->parent)->t);
+    this->add_symbol(root->arr_name, dimensions, dynamic_cast<VarDecl *>(root->parent)->t);
 
     for (auto i = 1; i < root->children.size(); i += 3)
     {
@@ -322,7 +347,6 @@ void Analyzer::analysisBlockItem(BlockItem *root, vector<ir::Instruction *> &buf
 void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
 {
     ir::Instruction *inst = new ir::Instruction();
-    insts.push_back(inst);
     {
         GET_CHILD_PTR(node, Term, 1);
         if (node)
@@ -357,12 +381,14 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &insts)
             }
         }
     }
+    insts.push_back(inst);
 }
 
 void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
 {
     string buffer;
     ANALYSIS(node, Term, 0);
+    buffer = this->symbol_table.get_scoped_name(buffer);
     root->v = this->symbol_table.get_operand(buffer).name;
     root->t = this->symbol_table.get_operand(buffer).type;
     vector<int> dimen;
@@ -372,7 +398,7 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
         ANALYSIS(node, Exp, i + 1);
         dimen.push_back(stoi(node->v));
     }
-    // TODO root->i index
+    root->i = 0;
 }
 void Analyzer::analysisExp(Exp *root, vector<ir::Instruction *> &buffer)
 {
@@ -404,6 +430,7 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
     if (node1)
     {
         ANALYSIS(node, LVal, 0);
+        COPY_EXP_NODE(node, root);
         return;
     }
     ANALYSIS(node2, Exp, 1);
@@ -448,8 +475,7 @@ void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
 
 void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
 {
-    {ANALYSIS(node, MulExp, 0)};
-    GET_CHILD_PTR(node1, MulExp, 0);
+    ANALYSIS(node1, MulExp, 0);
     COPY_EXP_NODE(node1, root);
     for (auto i = 2; i < root->children.size(); i += 2)
     {
@@ -458,7 +484,26 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
 
         if (node2->token.type == TokenType::PLUS)
         {
-            root->v = STR_ADD(root->v, node->v);
+            if (node->t == Type::IntLiteral && root->t == Type::IntLiteral)
+            {
+                root->v = STR_ADD(root->v, node->v);
+            }else{
+                //TODO: consider float
+                 ir::Instruction* inst=new ir::Instruction();
+                 inst->op=root->t==Type::IntLiteral|| node->t==Type::IntLiteral?Operator::addi:Operator::add;
+                 string desName=GET_RANDOM_NAM();
+                 this->add_symbol(desName,nullptr,Type::Int);
+                 inst->des=this->symbol_table.get_operand(desName);
+                 if(inst->op==Operator::add){
+                    inst->op1=this->symbol_table.get_operand(root->v);
+                    inst->op2=this->symbol_table.get_operand(node->v);
+                 }else{
+                    inst->op2=root->t==Type::Int?root->v:node->v;
+                    inst->op1=root->t==Type::Int?node->v:root->v;
+                 }
+                 root->v=desName;
+                 buffer.push_back(inst);
+            }
         }
         else if (node2->token.type == TokenType::MINU)
         {
