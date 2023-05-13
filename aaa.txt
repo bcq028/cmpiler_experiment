@@ -1,19 +1,11 @@
 int main()
 	0: call t0, global()
-	1: mov a_1, 10
-	2: call random_0, func()
-	3: mov b_2, random_0
-	4: return b_2
-end
-
-int func(int p)
-	0: subi random_0, 1, p
-	1: mov p, random_0
-	2: return p
+	1: mov a_2, 10
+	2: mod random_0, a_2, 3
+	3: return random_0
 end
 
 void global()
 end
 
 GVT:
-	a_1 int 0
