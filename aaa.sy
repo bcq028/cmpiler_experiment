@@ -1,5 +1,11 @@
-const int a[5]={0,1,2,3,4};
-
+int a;
+int func(int p){
+	p = p - 1;
+	return p;
+}
 int main(){
-    return a[4];
+	int b;
+	a = 10;
+	//b = func(a);
+	return b;
 }

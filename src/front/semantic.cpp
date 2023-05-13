@@ -492,9 +492,11 @@ void Analyzer::analysisFuncType(FuncType *root, ir::Type &buffer)
 }
 void Analyzer::analysisFuncFParam(FuncFParam *root, vector<ir::Instruction *> &buffer)
 {
+    TODO
 }
 void Analyzer::analysisFuncFParams(FuncFParams *root, vector<ir::Operand> &paramlist)
 {
+    TODO
 }
 void Analyzer::analysisBlock(Block *root, vector<ir::Instruction *> &insts)
 {
@@ -583,8 +585,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
                         string desName = GET_RANDOM_NAM();
                         this->add_symbol(desName, nullptr, Type::Int);
                         inst->des = this->symbol_table.get_operand(desName);
-                        inst->op1=symbol_table.get_operand(expNode->v);
-                        //TODO:support get a[2]
+                        inst->op1 = symbol_table.get_operand(expNode->v);
                         buffer.push_back(inst);
                     }
                 }
@@ -608,7 +609,13 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
         ANALYSIS(node, Exp, i + 1);
         dimen.push_back(stoi(node->v));
     }
-    root->i = 0;
+    int ind = 0;
+    for (int i = 0; i < dimen.size() - 1; ++i)
+    {
+        ind += dimen[i] * this->symbol_table.get_ste(root->v).dimension[i];
+    }
+    ind += dimen[dimen.size() - 1];
+    root->i = ind;
 }
 void Analyzer::analysisExp(Exp *root, vector<ir::Instruction *> &buffer)
 {
@@ -641,6 +648,20 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
     {
         ANALYSIS(node, LVal, 0);
         COPY_EXP_NODE(node, root);
+        if (node->i)
+        {
+            string t = GET_RANDOM_NAM();
+            ir::Instruction *loadInst = new ir::Instruction();
+            loadInst->op = Operator::load;
+            loadInst->op1 = node->v;
+            loadInst->op2 = Operand(std::to_string(node->i), Type::IntLiteral);
+            string desName = GET_RANDOM_NAM();
+            this->add_symbol(desName, nullptr, Type::Int);
+            loadInst->des = this->symbol_table.get_operand(desName);
+            buffer.push_back(loadInst);
+            root->v=desName;
+            root->t=node->t==Type::IntPtr?Type::Int:Type::Float;
+        }
         return;
     }
     ANALYSIS(node2, Exp, 1);
