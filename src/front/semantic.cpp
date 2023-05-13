@@ -230,6 +230,18 @@ void Analyzer::analysisDecl(Decl *root, vector<ir::Instruction *> &buffer)
 }
 void Analyzer::analysisConstDecl(ConstDecl *root, vector<ir::Instruction *> &buffer)
 {
+    ANALYSIS(node, BType, 1);
+    root->t = node->t;
+    ANALYSIS(node1, ConstDef, 2);
+    this->symbol_table.get_operand(node1->arr_name).type = root->t;
+    for (auto i = 3; i < root->children.size(); i += 2)
+    {
+        if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::COMMA)
+        {
+            ANALYSIS(node, ConstDef, i + 1);
+            this->symbol_table.get_operand(node->arr_name).type = root->t;
+        }
+    }
 }
 void Analyzer::analysisVarDecl(VarDecl *root, vector<ir::Instruction *> &buffer)
 {
@@ -253,6 +265,83 @@ void Analyzer::analysisBType(BType *root, vector<ir::Instruction *> &buffer)
 }
 void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffer)
 {
+    root->arr_name = dynamic_cast<Term *>(root->children[0])->token.value + "_" + std::to_string(this->symbol_table.scope_stack.size());
+    vector<int> *dimensions = new vector<int>();
+    for (auto i = 1; i < root->children.size(); i += 3)
+    {
+        if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::LBRACK)
+        {
+            ANALYSIS(node, ConstExp, i + 1);
+            dimensions->push_back(stoi(node->v));
+        }
+        else
+        {
+            break;
+        }
+    }
+    auto parent = dynamic_cast<ConstDecl *>(root->parent);
+    if (dimensions->size())
+    {
+        parent->t = parent->t == Type::Int ? Type::IntPtr : Type::FloatPtr;
+    }
+    this->add_symbol(root->arr_name, dimensions, dynamic_cast<ConstDecl *>(root->parent)->t);
+
+    if (dimensions->size())
+    {
+        ir::Instruction *allocInst = new ir::Instruction();
+        allocInst->des = this->symbol_table.get_operand(root->arr_name);
+        allocInst->op = Operator::alloc;
+        int op1 = 1;
+        for (auto i : *dimensions)
+        {
+            op1 *= i;
+        }
+        allocInst->op1 = Operand(std::to_string(op1), Type::IntLiteral);
+        buffer.push_back(allocInst);
+    }
+
+    for (auto i = 1; i < root->children.size(); i += 3)
+    {
+        if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::ASSIGN)
+        {
+            ANALYSIS(node, ConstInitVal, i + 1);
+            if (symbol_table.get_operand(root->arr_name).type == Type::Int)
+            {
+                ir::Instruction *init = new ir::Instruction();
+                init->des = this->symbol_table.get_operand(root->arr_name);
+                init->op = Operator::mov;
+                init->op1 = node->v;
+                buffer.push_back(init);
+            }
+            else if (symbol_table.get_operand(root->arr_name).type == Type::Float)
+            {
+                ir::Instruction *init = new ir::Instruction();
+                init->des = this->symbol_table.get_operand(root->arr_name);
+                init->op = Operator::fmov;
+                init->op1 = node->v;
+                buffer.push_back(init);
+            }
+            else if (symbol_table.get_operand(root->arr_name).type == Type::IntPtr || symbol_table.get_operand(root->arr_name).type == Type::FloatPtr)
+            {
+                vector<string> values = split(node->v, ' ');
+                if (values.size())
+                {
+                    values.erase(values.begin());
+                }
+                int size = values.size();
+                for (int i = 0; i < size; i++)
+                {
+                    ir::Instruction *storeInst = new ir::Instruction();
+                    storeInst->op = Operator::store;
+                    storeInst->des = values[i];
+                    storeInst->op1 = this->symbol_table.get_operand(root->arr_name);
+                    storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
+                    buffer.push_back(storeInst);
+                }
+            }
+        }
+    }
+    this->symbol_table.get_ste(root->arr_name).dimension = *dimensions;
 }
 void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
 {
@@ -271,13 +360,13 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
         }
     }
     auto parent = dynamic_cast<VarDecl *>(root->parent);
-    if (dimensions)
+    if (dimensions->size())
     {
         parent->t = parent->t == Type::Int ? Type::IntPtr : Type::FloatPtr;
     }
     this->add_symbol(root->arr_name, dimensions, dynamic_cast<VarDecl *>(root->parent)->t);
 
-    if (dimensions)
+    if (dimensions->size())
     {
         ir::Instruction *allocInst = new ir::Instruction();
         allocInst->des = this->symbol_table.get_operand(root->arr_name);
@@ -296,17 +385,43 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
         if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::ASSIGN)
         {
             ANALYSIS(node, InitVal, i + 1);
-            ir::Instruction *init = new ir::Instruction();
-            init->des = this->symbol_table.get_operand(root->arr_name);
-            init->op = symbol_table.get_operand(root->arr_name).type == Type::Int
-                           ? Operator::mov
-                           : Operator::fmov;
-            init->op1 = node->v;
-            buffer.push_back(init);
+            if (symbol_table.get_operand(root->arr_name).type == Type::Int)
+            {
+                ir::Instruction *init = new ir::Instruction();
+                init->des = this->symbol_table.get_operand(root->arr_name);
+                init->op = Operator::mov;
+                init->op1 = node->v;
+                buffer.push_back(init);
+            }
+            else if (symbol_table.get_operand(root->arr_name).type == Type::Float)
+            {
+                ir::Instruction *init = new ir::Instruction();
+                init->des = this->symbol_table.get_operand(root->arr_name);
+                init->op = Operator::fmov;
+                init->op1 = node->v;
+                buffer.push_back(init);
+            }
+            else if (symbol_table.get_operand(root->arr_name).type == Type::IntPtr || symbol_table.get_operand(root->arr_name).type == Type::FloatPtr)
+            {
+                vector<string> values = split(node->v, ' ');
+                if (values.size())
+                {
+                    values.erase(values.begin());
+                }
+                int size = values.size();
+                for (int i = 0; i < size; i++)
+                {
+                    ir::Instruction *storeInst = new ir::Instruction();
+                    storeInst->op = Operator::store;
+                    storeInst->des = values[i];
+                    storeInst->op1 = this->symbol_table.get_operand(root->arr_name);
+                    storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
+                    buffer.push_back(storeInst);
+                }
+            }
         }
     }
     this->symbol_table.get_ste(root->arr_name).dimension = *dimensions;
-    //TODO
 }
 void Analyzer::analysisConstExp(ConstExp *root, vector<ir::Instruction *> &buffer)
 {
@@ -315,6 +430,30 @@ void Analyzer::analysisConstExp(ConstExp *root, vector<ir::Instruction *> &buffe
 }
 void Analyzer::analysisConstInitVal(ConstInitVal *root, vector<ir::Instruction *> &buffer)
 {
+    GET_CHILD_PTR(exp, ConstExp, 0);
+    if (exp)
+    {
+        ANALYSIS(exp1, ConstExp, 0);
+        root->t = exp1->t;
+        root->v = exp1->v;
+    }
+    else
+    {
+        for (auto i = 1; i < root->children.size(); i += 2)
+        {
+            GET_CHILD_PTR(node, ConstInitVal, i);
+            if (node)
+            {
+                ANALYSIS(initNode, ConstInitVal, i);
+                root->v += ' ';
+                root->v += initNode->v;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
 }
 void Analyzer::analysisFuncDef(FuncDef *root, ir::Function &func)
 {
@@ -406,11 +545,11 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
                     int size = values.size();
                     for (int i = 0; i < size; i++)
                     {
-                        ir::Instruction* storeInst=new ir::Instruction();
-                        storeInst->op=Operator::store;
-                        storeInst->des=values[i];
-                        storeInst->op1=this->symbol_table.get_operand(lvalNode->v);
-                        storeInst->op2=ir::Operand(std::to_string(i),Type::IntLiteral);
+                        ir::Instruction *storeInst = new ir::Instruction();
+                        storeInst->op = Operator::store;
+                        storeInst->des = values[i];
+                        storeInst->op1 = this->symbol_table.get_operand(lvalNode->v);
+                        storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
                         buffer.push_back(storeInst);
                     }
                 }
@@ -432,9 +571,21 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
                     {
                         inst->op1 = Operand(expNode->v, expNode->t);
                     }
-                    else
+                    else if (expNode->t == Type::Int || expNode->t == Type::Float)
                     {
                         inst->op1 = symbol_table.get_operand(expNode->v);
+                    }
+                    else
+                    {
+                        // ptr
+                        ir::Instruction *inst = new ir::Instruction();
+                        inst->op = Operator::load;
+                        string desName = GET_RANDOM_NAM();
+                        this->add_symbol(desName, nullptr, Type::Int);
+                        inst->des = this->symbol_table.get_operand(desName);
+                        inst->op1=symbol_table.get_operand(expNode->v);
+                        //TODO:support get a[2]
+                        buffer.push_back(inst);
                     }
                 }
             }
