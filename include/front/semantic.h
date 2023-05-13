@@ -63,7 +63,6 @@ namespace frontend
         int tmp_cnt;
         vector<ir::Instruction *> g_init_inst;
         SymbolTable symbol_table;
-
         /**
          * @brief constructor
          */
@@ -78,7 +77,6 @@ namespace frontend
         Analyzer(const Analyzer &) = delete;
         Analyzer &operator=(const Analyzer &) = delete;
         void add_symbol(string id,vector<int>* dimension,Type);
-        void analysisTerm(Term*,string&);
         void analysisCompUnit(CompUnit *,ir::Program&);
         void analysisDecl(Decl *,vector<ir::Instruction*>&);
         void analysisConstDecl(ConstDecl *,vector<ir::Instruction*>&);
@@ -90,7 +88,7 @@ namespace frontend
         void analysisConstInitVal(ConstInitVal *,vector<ir::Instruction*>&);
         void analysisFuncDef(FuncDef *,ir::Function&);
         void analysisFuncType(FuncType *,ir::Type&);
-        void analysisFuncFParam(FuncFParam *,vector<ir::Instruction*>&);
+        void analysisFuncFParam(FuncFParam *,vector<ir::Operand>&);
         void analysisFuncFParams(FuncFParams *,vector<ir::Operand>&);
         void analysisBlock(Block *,vector<ir::Instruction*>&);
         void analysisBlockItem(BlockItem *,vector<ir::Instruction*>&);

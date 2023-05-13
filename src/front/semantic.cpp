@@ -184,11 +184,6 @@ ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 
 using namespace frontend;
 
-void Analyzer::analysisTerm(Term *root, string &s)
-{
-    s = root->token.value;
-}
-
 void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
 {
     ir::Function buffer;
@@ -246,6 +241,7 @@ void Analyzer::analysisConstDecl(ConstDecl *root, vector<ir::Instruction *> &buf
 void Analyzer::analysisVarDecl(VarDecl *root, vector<ir::Instruction *> &buffer)
 {
     ANALYSIS(node, BType, 0);
+
     root->t = node->t;
     ANALYSIS(node1, VarDef, 1);
     this->symbol_table.get_operand(node1->arr_name).type = root->t;
@@ -462,12 +458,12 @@ void Analyzer::analysisFuncDef(FuncDef *root, ir::Function &func)
         ANALYSIS(node, FuncType, 0);
     }
     {
-        auto &buffer = func.name;
-        ANALYSIS(node, Term, 1);
+        func.name = dynamic_cast<Term *>(root->children[1])->token.value;
     }
     GET_CHILD_PTR(node, FuncFParams, 3);
     if (node)
     {
+    this->symbol_table.add_scope(new Block());
         auto &buffer = func.ParameterList;
         ANALYSIS(node, FuncFParams, 3);
     }
@@ -490,13 +486,24 @@ void Analyzer::analysisFuncType(FuncType *root, ir::Type &buffer)
         buffer = ir::Type::Float;
     }
 }
-void Analyzer::analysisFuncFParam(FuncFParam *root, vector<ir::Instruction *> &buffer)
+void Analyzer::analysisFuncFParam(FuncFParam *root, vector<ir::Operand> &buffer)
 {
-    TODO
+    auto node = dynamic_cast<BType *>(root->children[0]);
+    auto name = dynamic_cast<Term *>(root->children[1])->token.value;
+    // TODO support more param type
+    this->add_symbol(name, nullptr, node->t);
+    buffer.push_back(this->symbol_table.get_operand(name));
 }
-void Analyzer::analysisFuncFParams(FuncFParams *root, vector<ir::Operand> &paramlist)
+void Analyzer::analysisFuncFParams(FuncFParams *root, vector<ir::Operand> &buffer)
 {
-    TODO
+    ANALYSIS(node, FuncFParam, 0);
+    for (auto i = 1; i < root->children.size(); ++i)
+    {
+        if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::COMMA)
+        {
+            ANALYSIS(node, FuncFParam, i + 1);
+        }
+    }
 }
 void Analyzer::analysisBlock(Block *root, vector<ir::Instruction *> &insts)
 {
@@ -597,9 +604,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
 
 void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
 {
-    string buffer;
-    ANALYSIS(node, Term, 0);
-    buffer = this->symbol_table.get_scoped_name(buffer);
+    string buffer = this->symbol_table.get_scoped_name(dynamic_cast<Term *>(root->children[0])->token.value);
     root->v = this->symbol_table.get_operand(buffer).name;
     root->t = this->symbol_table.get_operand(buffer).type;
     vector<int> dimen;
@@ -610,11 +615,14 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
         dimen.push_back(stoi(node->v));
     }
     int ind = 0;
-    for (int i = 0; i < dimen.size() - 1; ++i)
+    if (dimen.size())
     {
-        ind += dimen[i] * this->symbol_table.get_ste(root->v).dimension[i];
+        for (auto i = 0; i < dimen.size() - 1; ++i)
+        {
+            ind += dimen[i] * this->symbol_table.get_ste(root->v).dimension[i];
+        }
+        ind += dimen[dimen.size() - 1];
     }
-    ind += dimen[dimen.size() - 1];
     root->i = ind;
 }
 void Analyzer::analysisExp(Exp *root, vector<ir::Instruction *> &buffer)
@@ -659,8 +667,8 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
             this->add_symbol(desName, nullptr, Type::Int);
             loadInst->des = this->symbol_table.get_operand(desName);
             buffer.push_back(loadInst);
-            root->v=desName;
-            root->t=node->t==Type::IntPtr?Type::Int:Type::Float;
+            root->v = desName;
+            root->t = node->t == Type::IntPtr ? Type::Int : Type::Float;
         }
         return;
     }
@@ -743,7 +751,31 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
         }
         else if (node2->token.type == TokenType::MINU)
         {
-            root->v = STR_SUB(root->v, node->v);
+            if (node->t == Type::IntLiteral && root->t == Type::IntLiteral)
+            {
+                root->v = STR_SUB(root->v, node->v);
+            }
+            else
+            {
+                // TODO: consider float
+                ir::Instruction *inst = new ir::Instruction();
+                inst->op = root->t == Type::IntLiteral || node->t == Type::IntLiteral ? Operator::subi : Operator::sub;
+                string desName = GET_RANDOM_NAM();
+                this->add_symbol(desName, nullptr, Type::Int);
+                inst->des = this->symbol_table.get_operand(desName);
+                if (inst->op == Operator::sub)
+                {
+                    inst->op1 = this->symbol_table.get_operand(root->v);
+                    inst->op2 = this->symbol_table.get_operand(node->v);
+                }
+                else
+                {
+                    inst->op2 = root->t == Type::Int ? root->v : node->v;
+                    inst->op1 = root->t == Type::Int ? node->v : root->v;
+                }
+                root->v = desName;
+                buffer.push_back(inst);
+            }
         }
     }
 }
