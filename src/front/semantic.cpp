@@ -38,7 +38,8 @@ using ir::Operator;
 #define STR_MUL(x, y) (std::to_string(std::stoi(x) * std::stoi(y)))
 #define STR_DIV(x, y) (std::to_string(std::stoi(x) / std::stoi(y)))
 #define STR_MOD(x, y) (std::to_string(std::stoi(x) % std::stoi(y)))
-
+#define STR_OR(str1, str2) ((str1 == "true" || str2 == "true") ? "true" : "false")
+#define STR_AND(str1, str2) ((str1 == "true" && str2 == "true") ? "true" : "false")
 bool isNumber(std::string s, bool &isFloat)
 {
     std::regex num_regex("^[-+]?((\\d+)|(0x[\\da-fA-F]*)|(0o[0-7]*)|(0b[01]*))(\\.\\d+)?([eE][-+]?\\d+)?$");
@@ -548,63 +549,59 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
             ANALYSIS(node, Block, 0);
             return;
         }
-        GET_CHILD_PTR(node, Term, 1);
-        if (node)
+        if (dynamic_cast<Term *>(root->children[1]) && dynamic_cast<Term *>(root->children[1])->token.type == TokenType::ASSIGN)
         {
-            if (node->token.type == TokenType::ASSIGN)
+            ANALYSIS(expNode, Exp, 2);
+            ANALYSIS(lvalNode, LVal, 0);
+            inst->op = Operator::mov;
+            inst->des = this->symbol_table.get_operand(lvalNode->v);
+            if (expNode->t == Type::Int || expNode->t == Type::Float)
             {
-                ANALYSIS(expNode, Exp, 2);
-                ANALYSIS(lvalNode, LVal, 0);
-                inst->op = Operator::mov;
-                inst->des = this->symbol_table.get_operand(lvalNode->v);
-                if (expNode->t == Type::Int || expNode->t == Type::Float)
+                inst->op1 = this->symbol_table.get_operand(expNode->v);
+            }
+            else if (expNode->t == Type::IntLiteral || expNode->t == Type::FloatLiteral)
+            {
+                inst->op1 = expNode->v;
+            }
+            else
+            {
+                vector<string> values = split(expNode->v, ' ');
+                Operand des = this->symbol_table.get_operand(lvalNode->v);
+                int size = values.size();
+                for (int i = 0; i < size; i++)
                 {
-                    inst->op1 = this->symbol_table.get_operand(expNode->v);
+                    ir::Instruction *storeInst = new ir::Instruction();
+                    storeInst->op = Operator::store;
+                    storeInst->des = values[i];
+                    storeInst->op1 = this->symbol_table.get_operand(lvalNode->v);
+                    storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
+                    buffer.push_back(storeInst);
                 }
-                else if (expNode->t == Type::IntLiteral || expNode->t == Type::FloatLiteral)
-                {
-                    inst->op1 = expNode->v;
-                }
-                else
-                {
-                    vector<string> values = split(expNode->v, ' ');
-                    Operand des = this->symbol_table.get_operand(lvalNode->v);
-                    int size = values.size();
-                    for (int i = 0; i < size; i++)
-                    {
-                        ir::Instruction *storeInst = new ir::Instruction();
-                        storeInst->op = Operator::store;
-                        storeInst->des = values[i];
-                        storeInst->op1 = this->symbol_table.get_operand(lvalNode->v);
-                        storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
-                        buffer.push_back(storeInst);
-                    }
-                }
-                return;
             }
             return;
         }
-        if (dynamic_cast<Term *>(root->children[0])->token.type == TokenType::IFTK)
+        if (dynamic_cast<Term *>(root->children[0])&&dynamic_cast<Term *>(root->children[0])->token.type == TokenType::IFTK)
         {
-            TODO
+            ANALYSIS(cond, Cond, 2);
+            ANALYSIS(stmt, Stmt, 4);
+            if (root->children.size() > 5)
+            {
+                ANALYSIS(elseStmt, Stmt, 6);
+            }
             return;
         }
-        if (dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
+        if (dynamic_cast<Term *>(root->children[0])&&dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
         {
-            TODO
-            return;
+            TODO return;
         }
-        if (dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)
+        if (dynamic_cast<Term *>(root->children[0])&&dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)
         {
-            TODO
-            return;
+            TODO return;
         }
-        if (dynamic_cast<Term *>(root->children[0])->token.type == TokenType::BREAKTK)
+        if (dynamic_cast<Term *>(root->children[0])&&dynamic_cast<Term *>(root->children[0])->token.type == TokenType::BREAKTK)
         {
-            TODO
-            return;
+            TODO return;
         }
-
     }
     GET_CHILD_PTR(node, Term, 0);
     if (node)
@@ -674,6 +671,8 @@ void Analyzer::analysisExp(Exp *root, vector<ir::Instruction *> &buffer)
 }
 void Analyzer::analysisCond(Cond *root, vector<ir::Instruction *> &buffer)
 {
+    ANALYSIS(node, LOrExp, 0);
+    COPY_EXP_NODE(node, root);
 }
 void Analyzer::analysisNumber(Number *root, string &buffer)
 {
@@ -730,8 +729,45 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
     {
         string c = dynamic_cast<Term *>(op->children[0])->token.value;
         ANALYSIS(uexp, UnaryExp, 1);
-        root->v = c + uexp->v;
-        root->t = uexp->t;
+        if (c == "+")
+        {
+            root->v = uexp->v;
+            root->t = uexp->t;
+        }
+        else if (c == "-")
+        {
+            root->v = GET_RANDOM_NAM();
+            add_symbol(root->v, nullptr, uexp->t);
+            root->v = symbol_table.get_operand(root->v).name;
+            ir::Operator ir_op = (uexp->t == Type::Int) ? Operator::mul : Operator::fmul;
+            ir::Instruction *inst = new ir::Instruction();
+            inst->op = ir_op;
+            inst->des = this->symbol_table.get_operand(root->v);
+            inst->op1=this->symbol_table.get_operand(uexp->v);
+            if (uexp->t == Type::Int)
+            {
+                inst->op2 = this->symbol_table.get_operand(std::to_string(-1));
+            }
+            else
+            {
+                inst->op2 = this->symbol_table.get_operand(std::to_string(-1.0f));
+            }
+            buffer.push_back(inst);
+            root->t = uexp->t;
+        }
+        else if (c == "!")
+        {
+            root->v = GET_RANDOM_NAM();
+            add_symbol(root->v, nullptr, Type::Int);
+            root->v = symbol_table.get_operand(root->v).name;
+            ir::Operator ir_op = Operator::_not;
+            ir::Instruction *inst = new ir::Instruction();
+            inst->op = ir_op;
+            inst->des = this->symbol_table.get_operand(root->v);
+            inst->op1 = this->symbol_table.get_operand(uexp->v);
+            buffer.push_back(inst);
+            root->t = uexp->t;
+        }
         return;
     }
     string func = dynamic_cast<Term *>(root->children[0])->token.value;
@@ -930,15 +966,82 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
 }
 void Analyzer::analysisRelExp(RelExp *root, vector<ir::Instruction *> &buffer)
 {
+    ANALYSIS(node, AddExp, 0);
+    COPY_EXP_NODE(node, root);
+    if (root->children.size() > 1)
+    {
+        ANALYSIS(node2, AddExp, 2);
+        auto op = dynamic_cast<Term *>(root->children[1])->token.type;
+        auto des = GET_RANDOM_NAM();
+        add_symbol(des, nullptr, Type::Int);
+        des = this->symbol_table.get_operand(des).name;
+        auto op1 = this->symbol_table.get_operand(root->v);
+        auto op2 = this->symbol_table.get_operand(node2->v);
+        auto inst = new ir::Instruction();
+        inst->des = this->symbol_table.get_operand(des);
+        inst->op1 = op1;
+        inst->op2 = op2;
+        buffer.push_back(inst);
+        switch (op)
+        {
+        case TokenType::LSS:
+            inst->op = Operator::lss;
+            break;
+        case TokenType::GTR:
+            inst->op = Operator::gtr;
+            break;
+        case TokenType::LEQ:
+            inst->op = Operator::leq;
+            break;
+        case TokenType::GEQ:
+            inst->op = Operator::geq;
+            break;
+        default:
+            break;
+        }
+        root->v = des;
+    }
 }
 void Analyzer::analysisEqExp(EqExp *root, vector<ir::Instruction *> &buffer)
 {
+    ANALYSIS(node, RelExp, 0);
+    COPY_EXP_NODE(node, root);
+    if (root->children.size() > 1)
+    {
+        ANALYSIS(node2, RelExp, 2);
+        auto op = dynamic_cast<Term *>(root->children[1])->token.type;
+        auto des = GET_RANDOM_NAM();
+        add_symbol(des, nullptr, Type::Int);
+        auto op1 = this->symbol_table.get_operand(root->v);
+        auto op2 = this->symbol_table.get_operand(node2->v);
+        auto inst = new ir::Instruction();
+        inst->op = op == TokenType::NEQ ? Operator::neq : Operator::eq;
+        inst->op1 = op1;
+        inst->op2 = op2;
+        inst->des = this->symbol_table.get_operand(des);
+        buffer.push_back(inst);
+        root->v = this->symbol_table.get_operand(des).name;
+    }
 }
 void Analyzer::analysisLAndExp(LAndExp *root, vector<ir::Instruction *> &buffer)
 {
+    ANALYSIS(node, EqExp, 0);
+    COPY_EXP_NODE(node, root);
+    if (root->children.size() > 1)
+    {
+        ANALYSIS(node, LAndExp, 2);
+        root->v = STR_AND(root->v, node->v);
+    }
 }
 void Analyzer::analysisLOrExp(LOrExp *root, vector<ir::Instruction *> &buffer)
 {
+    ANALYSIS(node, LAndExp, 0);
+    COPY_EXP_NODE(node, root);
+    if (root->children.size() > 1)
+    {
+        ANALYSIS(node, LOrExp, 2);
+        root->v = STR_OR(root->v, node->v);
+    }
 }
 void Analyzer::analysisInitVal(InitVal *root, vector<ir::Instruction *> &buffer)
 {
@@ -965,7 +1068,4 @@ void Analyzer::analysisInitVal(InitVal *root, vector<ir::Instruction *> &buffer)
             }
         }
     }
-}
-void Analyzer::analysisUnaryOp(UnaryOp *root, vector<ir::Instruction *> &buffer)
-{
 }

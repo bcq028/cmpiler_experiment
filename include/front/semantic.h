@@ -108,7 +108,6 @@ namespace frontend
         void analysisLAndExp(LAndExp *,vector<ir::Instruction*>&);
         void analysisLOrExp(LOrExp *,vector<ir::Instruction*>&);
         void analysisInitVal(InitVal *,vector<ir::Instruction*>&);
-        void analysisUnaryOp(UnaryOp *,vector<ir::Instruction*>&);
     };
 
 } // namespace frontend
