@@ -460,15 +460,16 @@ void Analyzer::analysisFuncDef(FuncDef *root, ir::Function &func)
     {
         func.name = dynamic_cast<Term *>(root->children[1])->token.value;
     }
+    this->symbol_table.add_scope(new Block());
     GET_CHILD_PTR(node, FuncFParams, 3);
     if (node)
     {
-    this->symbol_table.add_scope(new Block());
         auto &buffer = func.ParameterList;
         ANALYSIS(node, FuncFParams, 3);
     }
     auto &buffer = func.InstVec;
     ANALYSIS(node3, Block, root->children.size() - 1);
+    this->symbol_table.exit_scope();
 }
 void Analyzer::analysisFuncType(FuncType *root, ir::Type &buffer)
 {
@@ -486,13 +487,14 @@ void Analyzer::analysisFuncType(FuncType *root, ir::Type &buffer)
         buffer = ir::Type::Float;
     }
 }
-void Analyzer::analysisFuncFParam(FuncFParam *root, vector<ir::Operand> &buffer)
+void Analyzer::analysisFuncFParam(FuncFParam *root, vector<ir::Operand> &oprands)
 {
-    auto node = dynamic_cast<BType *>(root->children[0]);
+    auto buffer = this->g_init_inst;
+    ANALYSIS(node, BType, 0);
     auto name = dynamic_cast<Term *>(root->children[1])->token.value;
     // TODO support more param type
     this->add_symbol(name, nullptr, node->t);
-    buffer.push_back(this->symbol_table.get_operand(name));
+    oprands.push_back(this->symbol_table.get_operand(name));
 }
 void Analyzer::analysisFuncFParams(FuncFParams *root, vector<ir::Operand> &buffer)
 {
@@ -507,13 +509,11 @@ void Analyzer::analysisFuncFParams(FuncFParams *root, vector<ir::Operand> &buffe
 }
 void Analyzer::analysisBlock(Block *root, vector<ir::Instruction *> &insts)
 {
-    this->symbol_table.add_scope(root);
     for (auto i = 1; i < root->children.size() - 1; ++i)
     {
         auto &buffer = insts;
         ANALYSIS(node, BlockItem, i);
     }
-    this->symbol_table.exit_scope();
 }
 void Analyzer::analysisBlockItem(BlockItem *root, vector<ir::Instruction *> &buffer)
 {
@@ -682,10 +682,48 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
     {
         ANALYSIS(node1, PrimaryExp, 0);
         COPY_EXP_NODE(node1, root);
+        return;
     }
+    GET_CHILD_PTR(op, UnaryOp, 0);
+    if (op)
+    {
+        string c = dynamic_cast<Term *>(op->children[0])->token.value;
+        ANALYSIS(uexp, UnaryExp, 1);
+        root->v = c + uexp->v;
+        root->t = uexp->t;
+        return;
+    }
+    string func = dynamic_cast<Term *>(root->children[0])->token.value;
+    ir::Type returnType;
+    for (auto funct : this->symbol_table.functions)
+    {
+        if (funct.first == func)
+        {
+            returnType = funct.second->returnType;
+            break;
+        }
+    }
+    vector<string> params;
+    if (root->children.size() > 3)
+    {
+        ANALYSIS(rp, FuncRParams, 2);
+        for (auto c : funcRParam_ret)
+        {
+            func += c.name;
+        }
+    }
+    string desName = GET_RANDOM_NAM();
+    this->add_symbol(desName, nullptr, returnType);
+    std::vector<ir::Operand> paramList;
+    //TODO:support paramList
+    ir::Instruction *inst = new ir::CallInst(ir::Operand(func, ir::Type::null),paramList,
+                                             this->symbol_table.get_operand(desName));
+    root->v = this->symbol_table.get_operand(desName).name;
+    buffer.push_back(inst);
 }
 void Analyzer::analysisFuncRParams(FuncRParams *root, vector<ir::Instruction *> &buffer)
 {
+    // TODO
 }
 
 void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
@@ -745,7 +783,7 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
                     inst->op2 = root->t == Type::Int ? root->v : node->v;
                     inst->op1 = root->t == Type::Int ? node->v : root->v;
                 }
-                root->v = desName;
+                root->v = this->symbol_table.get_operand(desName).name;
                 buffer.push_back(inst);
             }
         }
@@ -773,7 +811,7 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
                     inst->op2 = root->t == Type::Int ? root->v : node->v;
                     inst->op1 = root->t == Type::Int ? node->v : root->v;
                 }
-                root->v = desName;
+                root->v = this->symbol_table.get_operand(desName).name;
                 buffer.push_back(inst);
             }
         }

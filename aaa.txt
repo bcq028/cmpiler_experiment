@@ -1,15 +1,15 @@
 int main()
 	0: call t0, global()
 	1: mov a_1, 10
-	2: return b_2
+	2: call random_0, func()
+	3: mov b_2, random_0
+	4: return b_2
 end
 
-int func(Type error: error type number15 p)
-	0: subi random_0, p, 1
-	1: store random_0, p, 0
-	2: mov p, null
-	3: load random_0, p, null
-	4: return null
+int func(int p)
+	0: subi random_0, 1, p
+	1: mov p, random_0
+	2: return p
 end
 
 void global()
@@ -17,4 +17,3 @@ end
 
 GVT:
 	a_1 int 0
-	p Type error: error type number15 0

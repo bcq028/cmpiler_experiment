@@ -62,6 +62,7 @@ namespace frontend
     {
         int tmp_cnt;
         vector<ir::Instruction *> g_init_inst;
+        vector<ir::Operand> funcRParam_ret;
         SymbolTable symbol_table;
         /**
          * @brief constructor
