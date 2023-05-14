@@ -38,8 +38,6 @@ using ir::Operator;
 #define STR_MUL(x, y) (std::to_string(std::stoi(x) * std::stoi(y)))
 #define STR_DIV(x, y) (std::to_string(std::stoi(x) / std::stoi(y)))
 #define STR_MOD(x, y) (std::to_string(std::stoi(x) % std::stoi(y)))
-#define STR_OR(str1, str2) ((str1 == "true" || str2 == "true") ? "true" : "false")
-#define STR_AND(str1, str2) ((str1 == "true" && str2 == "true") ? "true" : "false")
 bool isNumber(std::string s, bool &isFloat)
 {
     std::regex num_regex("^[-+]?((\\d+)|(0x[\\da-fA-F]*)|(0o[0-7]*)|(0b[01]*))(\\.\\d+)?([eE][-+]?\\d+)?$");
@@ -580,25 +578,31 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
             }
             return;
         }
-        if (dynamic_cast<Term *>(root->children[0])&&dynamic_cast<Term *>(root->children[0])->token.type == TokenType::IFTK)
+        if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::IFTK)
         {
             ANALYSIS(cond, Cond, 2);
+            ir::Instruction *gotoInst = new ir::Instruction(this->symbol_table.get_operand(cond->v),
+                                                            ir::Operand(),
+                                                            ir::Operand("1", ir::Type::IntLiteral), ir::Operator::_goto);
+
+            buffer.push_back(gotoInst);
             ANALYSIS(stmt, Stmt, 4);
             if (root->children.size() > 5)
             {
                 ANALYSIS(elseStmt, Stmt, 6);
             }
+
             return;
         }
-        if (dynamic_cast<Term *>(root->children[0])&&dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
+        if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
         {
             TODO return;
         }
-        if (dynamic_cast<Term *>(root->children[0])&&dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)
+        if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)
         {
             TODO return;
         }
-        if (dynamic_cast<Term *>(root->children[0])&&dynamic_cast<Term *>(root->children[0])->token.type == TokenType::BREAKTK)
+        if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::BREAKTK)
         {
             TODO return;
         }
@@ -743,7 +747,7 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
             ir::Instruction *inst = new ir::Instruction();
             inst->op = ir_op;
             inst->des = this->symbol_table.get_operand(root->v);
-            inst->op1=this->symbol_table.get_operand(uexp->v);
+            inst->op1 = this->symbol_table.get_operand(uexp->v);
             if (uexp->t == Type::Int)
             {
                 inst->op2 = this->symbol_table.get_operand(std::to_string(-1));
@@ -1030,7 +1034,22 @@ void Analyzer::analysisLAndExp(LAndExp *root, vector<ir::Instruction *> &buffer)
     if (root->children.size() > 1)
     {
         ANALYSIS(node, LAndExp, 2);
-        root->v = STR_AND(root->v, node->v);
+        if (root->t == Type::IntLiteral && node->t == Type::IntLiteral) {
+            int val = (root->v != "0") && (node->v != "0");
+            root->t = Type::IntLiteral;
+            root->v=val;
+        } else {
+            string name = GET_RANDOM_NAM();
+            add_symbol(name, nullptr, Type::Int);
+            ir::Instruction* inst = new ir::Instruction();
+            inst->op = Operator::_and;
+            inst->des = symbol_table.get_operand(name);
+            inst->op1 = symbol_table.get_operand(root->v);
+            inst->op2 = symbol_table.get_operand(node->v);
+            buffer.push_back(inst);
+            root->v = symbol_table.get_operand(name).name;
+            root->t = Type::Int;
+        }
     }
 }
 void Analyzer::analysisLOrExp(LOrExp *root, vector<ir::Instruction *> &buffer)
@@ -1040,7 +1059,22 @@ void Analyzer::analysisLOrExp(LOrExp *root, vector<ir::Instruction *> &buffer)
     if (root->children.size() > 1)
     {
         ANALYSIS(node, LOrExp, 2);
-        root->v = STR_OR(root->v, node->v);
+        if (root->t == Type::IntLiteral && node->t == Type::IntLiteral) {
+            int val = (root->v != "0") || (node->v != "0");
+            root->t = Type::IntLiteral;
+            root->v=val;
+        } else {
+            string name = GET_RANDOM_NAM();
+            add_symbol(name, nullptr, Type::Int);
+            ir::Instruction* inst = new ir::Instruction();
+            inst->op = Operator::_or;
+            inst->des = symbol_table.get_operand(name);
+            inst->op1 = symbol_table.get_operand(root->v);
+            inst->op2 = symbol_table.get_operand(node->v);
+            buffer.push_back(inst);
+            root->v = symbol_table.get_operand(name).name;
+            root->t = Type::Int;
+        }
     }
 }
 void Analyzer::analysisInitVal(InitVal *root, vector<ir::Instruction *> &buffer)
