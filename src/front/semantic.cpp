@@ -11,15 +11,10 @@ using ir::Operator;
 #define TODO assert(0 && "TODO");
 
 #define GET_CHILD_PTR(node, type, index)                                                          \
-    auto node = dynamic_cast<type *>(root->children[index]);                                      \
-    if (!node)                                                                                    \
-    {                                                                                             \
-        std::cerr << "Error: failed to cast node " << index << " to type " << #type << std::endl; \
-    }
+    auto node = dynamic_cast<type *>(root->children[index]);                                      
 #define ANALYSIS(node, type, index)                          \
                                                              \
     auto node = dynamic_cast<type *>(root->children[index]); \
-    assert(node);                                            \
     analysis##type(node, buffer);
 
 #define COPY_EXP_NODE(from, to)              \
