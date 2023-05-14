@@ -61,6 +61,8 @@ namespace frontend
     struct Analyzer
     {
         int tmp_cnt;
+        int break_pc;
+        int continue_pc;
         vector<ir::Instruction *> g_init_inst;
         vector<ir::Operand> funcRParam_ret;
         SymbolTable symbol_table;
