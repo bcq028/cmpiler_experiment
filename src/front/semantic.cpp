@@ -10,8 +10,8 @@ using ir::Operator;
 
 #define TODO assert(0 && "TODO");
 
-#define GET_CHILD_PTR(node, type, index)                                                          \
-    auto node = dynamic_cast<type *>(root->children[index]);                                      
+#define GET_CHILD_PTR(node, type, index) \
+    auto node = dynamic_cast<type *>(root->children[index]);
 #define ANALYSIS(node, type, index)                          \
                                                              \
     auto node = dynamic_cast<type *>(root->children[index]); \
@@ -165,6 +165,7 @@ ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 {
     ir::Program *buffer = new ir::Program();
     ir::Function *globalFunc = new ir::Function("global", ir::Type::null);
+    globalFunc->addInst(new ir::Instruction(Operand(), Operand(), Operand(), Operator::__unuse__));
     this->cur_program = buffer;
     this->symbol_table.add_scope(nullptr);
     analysisCompUnit(root, *buffer);
@@ -173,6 +174,7 @@ ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
     {
         globalFunc->addInst(inst);
     }
+    globalFunc->addInst(new ir::Instruction(ir::Operand("null", Type::null), ir::Operand(), ir::Operand(), Operator::_return));
     this->cur_program->addFunction(*globalFunc);
     ir::CallInst *callGlobal = new ir::CallInst(ir::Operand("global", ir::Type::null),
                                                 ir::Operand("t0", ir::Type::null));
@@ -191,12 +193,12 @@ using namespace frontend;
 
 void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
 {
-    ir::Function buffer;
+    ir::Function* buffer=new ir::Function();
     GET_CHILD_PTR(node, FuncDef, 0);
     if (node)
     {
         ANALYSIS(node, FuncDef, 0);
-        program.addFunction(buffer);
+        program.addFunction(*buffer);
     }
     else
     {
@@ -391,7 +393,7 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
                 ir::Instruction *init = new ir::Instruction();
                 init->des = this->symbol_table.get_operand(root->arr_name);
                 init->op = Operator::mov;
-                init->op1 = node->v;
+                init->op1 = this->symbol_table.get_operand(node->v);
                 buffer.push_back(init);
             }
             else if (symbol_table.get_operand(root->arr_name).type == Type::Float)
@@ -456,23 +458,24 @@ void Analyzer::analysisConstInitVal(ConstInitVal *root, vector<ir::Instruction *
         }
     }
 }
-void Analyzer::analysisFuncDef(FuncDef *root, ir::Function &func)
+void Analyzer::analysisFuncDef(FuncDef *root, ir::Function *func)
 {
     {
-        auto &buffer = func.returnType;
+        auto &buffer = func->returnType;
         ANALYSIS(node, FuncType, 0);
     }
     {
-        func.name = dynamic_cast<Term *>(root->children[1])->token.value;
+        func->name = dynamic_cast<Term *>(root->children[1])->token.value;
     }
+    this->symbol_table.functions[func->name]=func;
     this->symbol_table.add_scope(new Block());
     GET_CHILD_PTR(node, FuncFParams, 3);
     if (node)
     {
-        auto &buffer = func.ParameterList;
+        auto &buffer = func->ParameterList;
         ANALYSIS(node, FuncFParams, 3);
     }
-    auto &buffer = func.InstVec;
+    auto &buffer = func->InstVec;
     ANALYSIS(node3, Block, root->children.size() - 1);
     this->symbol_table.exit_scope();
 }
@@ -760,7 +763,6 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
         COPY_EXP_NODE(node, root);
         if (node->i)
         {
-            string t = GET_RANDOM_NAM();
             ir::Instruction *loadInst = new ir::Instruction();
             loadInst->op = Operator::load;
             loadInst->op1 = node->v;
