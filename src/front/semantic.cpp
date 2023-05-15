@@ -27,16 +27,21 @@ using ir::Operator;
 #define STR_MUL(x, y) (std::to_string(std::stoi(x) * std::stoi(y)))
 #define STR_DIV(x, y) (std::to_string(std::stoi(x) / std::stoi(y)))
 #define STR_MOD(x, y) (std::to_string(std::stoi(x) % std::stoi(y)))
+#define IS_INT_T(t) (t == Type::Int || t == Type::IntLiteral)
+#define IS_FLOAT_T(t) (t == Type::Float || t == Type::FloatLiteral)
+
 bool isNumber(std::string s, bool &isFloat)
 {
     std::regex num_regex("^[-+]?((\\d+)|(0x[\\da-fA-F]*)|(0o[0-7]*)|(0b[01]*))$");
-    for(char c:s){
-        if(c=='.') {
-            isFloat=true;
+    for (char c : s)
+    {
+        if (c == '.')
+        {
+            isFloat = true;
             break;
         }
     }
-    return std::regex_match(s, num_regex);
+    return std::regex_match(s, num_regex) || isFloat;
 }
 string GET_RANDOM_NAM()
 {
@@ -341,7 +346,7 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
                 {
                     ir::Instruction *storeInst = new ir::Instruction();
                     storeInst->op = Operator::store;
-                    storeInst->des = values[i];
+                    storeInst->des = this->symbol_table.get_operand(values[i]);
                     storeInst->op1 = this->symbol_table.get_operand(root->arr_name);
                     storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
                     buffer.push_back(storeInst);
@@ -644,7 +649,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         int while_cond_size = buffer.size() - while_cond_idx - while_body_size - 2;
         jumpToWhileEnd->des.name = std::to_string(while_body_size + 1);
 
-        jumpToWhileCond->des.name = std::to_string(-(while_body_size + while_cond_size + 2)+1);
+        jumpToWhileCond->des.name = std::to_string(-(while_body_size + while_cond_size + 2) + 1);
 
         // 将break和continue语句该前往的pc位置恢复为上一个循环的位置
         this->break_pc = prev_break_pc;
@@ -653,10 +658,9 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)
     {
-        this->continue_pc = buffer.size();
         ir::Instruction *jumpToWhileCond = new ir::Instruction(ir::Operand(),
                                                                ir::Operand(),
-                                                               ir::Operand(std::to_string(buffer.size() - this->continue_pc), ir::Type::IntLiteral), ir::Operator::_goto);
+                                                               ir::Operand(std::to_string(this->continue_pc-(int)buffer.size()), ir::Type::IntLiteral), ir::Operator::_goto);
         buffer.push_back(jumpToWhileCond);
         return;
     }
@@ -765,7 +769,7 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
         {
             ir::Instruction *loadInst = new ir::Instruction();
             loadInst->op = Operator::load;
-            loadInst->op1 = node->v;
+            loadInst->op1 = symbol_table.get_operand(node->v);
             loadInst->op2 = Operand(std::to_string(node->i), Type::IntLiteral);
             string desName = GET_RANDOM_NAM();
             this->add_symbol(desName, nullptr, Type::Int);
@@ -803,12 +807,12 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
             root->v = GET_RANDOM_NAM();
             add_symbol(root->v, nullptr, uexp->t);
             root->v = symbol_table.get_operand(root->v).name;
-            ir::Operator ir_op = (uexp->t == Type::Int) ? Operator::mul : Operator::fmul;
+            ir::Operator ir_op = IS_INT_T(uexp->t) ? Operator::mul : Operator::fmul;
             ir::Instruction *inst = new ir::Instruction();
             inst->op = ir_op;
             inst->des = this->symbol_table.get_operand(root->v);
             inst->op1 = this->symbol_table.get_operand(uexp->v);
-            if (uexp->t == Type::Int)
+            if (IS_INT_T(uexp->t))
             {
                 inst->op2 = this->symbol_table.get_operand(std::to_string(-1));
             }
@@ -848,10 +852,6 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
     if (root->children.size() > 3)
     {
         ANALYSIS(rp, FuncRParams, 2);
-        for (auto c : funcRParam_ret)
-        {
-            func += c.name;
-        }
     }
     string desName = GET_RANDOM_NAM();
     this->add_symbol(desName, nullptr, returnType);
@@ -892,7 +892,7 @@ void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
             {
                 // TODO: consider float
                 ir::Instruction *inst = new ir::Instruction();
-                inst->op = root->t == Type::IntLiteral || node->t == Type::IntLiteral ? Operator::mul : Operator::fmul;
+                inst->op = IS_INT_T(root->t) || IS_INT_T(node->t)? Operator::mul : Operator::fmul;
                 string desName = GET_RANDOM_NAM();
                 this->add_symbol(desName, nullptr, Type::Int);
                 inst->des = this->symbol_table.get_operand(desName);
@@ -1019,8 +1019,8 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
                 }
                 else
                 {
-                    inst->op2 = root->t == Type::Int ? root->v : node->v;
-                    inst->op1 = root->t == Type::Int ? node->v : root->v;
+                    inst->op1 = root->t == Type::Int ? this->symbol_table.get_operand(root->v) : this->symbol_table.get_operand(node->v);
+                    inst->op2 = root->t == Type::Int ? this->symbol_table.get_operand(node->v) : this->symbol_table.get_operand(root->v);
                 }
                 root->v = this->symbol_table.get_operand(desName).name;
                 buffer.push_back(inst);
