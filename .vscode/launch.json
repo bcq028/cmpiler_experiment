@@ -3,26 +3,16 @@
   "configurations": [
     {
       "name": "debugger",
-      "type": "cppdbg",
+      "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/bin/compiler",
       "args": [
         "${workspaceFolder}/aaa.sy",
-        "-e",
+        "-s2",
         "-o",
         "./aaa.txt"
       ],
-      "cwd": "${workspaceFolder}",
-      "MIMode": "gdb",
-      "miDebuggerPath": "gdb",
-      "preLaunchTask": "build",
-      "setupCommands": [
-        {
-            "description": "为 gdb 启用整齐打印",
-            "text": "-enable-pretty-printing",
-            "ignoreFailures": true
-        }
-    ]
+      "cwd": "${workspaceFolder}"
     }
   ]
 }

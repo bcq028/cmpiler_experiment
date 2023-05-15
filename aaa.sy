@@ -1,7 +1,15 @@
-//test the priority of  unary operator and binary operator
+//test break
 int main(){
-    int a, b;
-    a = 10;
-    b = 30;
-    return a - -5 + b + -5;
+    int i;
+    i = 0;
+    int sum;
+    sum = 0;
+    while(i < 100){
+        if(i == 50){
+            break;
+        }
+        sum = sum + i;
+        i = i + 1;
+    }
+    return sum;
 }

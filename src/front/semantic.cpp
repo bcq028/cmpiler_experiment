@@ -4,7 +4,6 @@
 #include <regex>
 #include <sstream>
 using ir::Function;
-using ir::Instruction;
 using ir::Operand;
 using ir::Operator;
 
@@ -426,7 +425,7 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
                 {
                     ir::Instruction *storeInst = new ir::Instruction();
                     storeInst->op = Operator::store;
-                    storeInst->des = values[i];
+                    storeInst->des = this->symbol_table.get_operand(values[i]);
                     storeInst->op1 = this->symbol_table.get_operand(root->arr_name);
                     storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
                     buffer.push_back(storeInst);
@@ -488,6 +487,7 @@ void Analyzer::analysisFuncDef(FuncDef *root, ir::Function *func)
     auto &buffer = func->InstVec;
     ANALYSIS(node3, Block, root->children.size() - 1);
     this->symbol_table.exit_scope();
+    func->InstVec.push_back(new ir::Instruction(symbol_table.get_operand("0"),Operand(),Operand(),Operator::_return));
 }
 void Analyzer::analysisFuncType(FuncType *root, ir::Type &buffer)
 {
@@ -572,7 +572,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
             {
                 ir::Instruction *storeInst = new ir::Instruction();
                 storeInst->op = Operator::store;
-                storeInst->des = values[i];
+                storeInst->des = this->symbol_table.get_operand(values[i]);
                 storeInst->op1 = this->symbol_table.get_operand(lvalNode->v);
                 storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
                 buffer.push_back(storeInst);
@@ -611,7 +611,6 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
             else_insts_size = buffer.size() - else_insts_size;
             jumpToEnd->des.name = std::to_string(else_insts_size + 1);
         }
-
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
@@ -721,7 +720,7 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
         ANALYSIS(node, Exp, i + 1);
         dimen.push_back(stoi(node->v));
     }
-    int ind = 0;
+    int ind = dimen.size()?0:-1;  
     if (dimen.size())
     {
         for (auto i = 0; i < dimen.size() - 1; ++i)
@@ -746,7 +745,7 @@ void Analyzer::analysisCond(Cond *root, vector<ir::Instruction *> &buffer)
 void Analyzer::analysisNumber(Number *root, string &buffer)
 {
     GET_CHILD_PTR(node, Term, 0);
-    root->t = node->token.type == TokenType::INTLTR ? ir::Type::IntLiteral : ir::Type::FloatLiteral;
+    root->t = node->token.type == TokenType::INTLTR ? ir::Type::Int : ir::Type::Float;
     root->v = node->token.value;
     root->is_computable = true;
 }
@@ -765,7 +764,7 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
     {
         ANALYSIS(node, LVal, 0);
         COPY_EXP_NODE(node, root);
-        if (node->i)
+        if (node->i!=-1)
         {
             ir::Instruction *loadInst = new ir::Instruction();
             loadInst->op = Operator::load;
@@ -840,6 +839,10 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
     }
     string func = dynamic_cast<Term *>(root->children[0])->token.value;
     ir::Type returnType;
+    auto lib_funcs=get_lib_funcs();
+    if(lib_funcs->count(func)){
+        returnType=(*lib_funcs)[func]->returnType;
+    }
     for (auto funct : this->symbol_table.functions)
     {
         if (funct.first == func)
