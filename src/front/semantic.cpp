@@ -29,9 +29,14 @@ using ir::Operator;
 #define STR_MOD(x, y) (std::to_string(std::stoi(x) % std::stoi(y)))
 bool isNumber(std::string s, bool &isFloat)
 {
-    std::regex num_regex("^[-+]?((\\d+)|(0x[\\da-fA-F]*)|(0o[0-7]*)|(0b[01]*))(\\.\\d+)?([eE][-+]?\\d+)?$");
-    isFloat = std::regex_match(s, num_regex);
-    return isFloat || std::regex_match(s, std::regex("^[-+]?\\d+$"));
+    std::regex num_regex("^[-+]?((\\d+)|(0x[\\da-fA-F]*)|(0o[0-7]*)|(0b[01]*))$");
+    for(char c:s){
+        if(c=='.') {
+            isFloat=true;
+            break;
+        }
+    }
+    return std::regex_match(s, num_regex);
 }
 string GET_RANDOM_NAM()
 {
@@ -193,7 +198,7 @@ using namespace frontend;
 
 void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
 {
-    ir::Function* buffer=new ir::Function();
+    ir::Function *buffer = new ir::Function();
     GET_CHILD_PTR(node, FuncDef, 0);
     if (node)
     {
@@ -313,7 +318,7 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
                 ir::Instruction *init = new ir::Instruction();
                 init->des = this->symbol_table.get_operand(root->arr_name);
                 init->op = Operator::mov;
-                init->op1 = node->v;
+                init->op1 = symbol_table.get_operand(node->v);
                 buffer.push_back(init);
             }
             else if (symbol_table.get_operand(root->arr_name).type == Type::Float)
@@ -321,7 +326,7 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
                 ir::Instruction *init = new ir::Instruction();
                 init->des = this->symbol_table.get_operand(root->arr_name);
                 init->op = Operator::fmov;
-                init->op1 = node->v;
+                init->op1 = symbol_table.get_operand(node->v);
                 buffer.push_back(init);
             }
             else if (symbol_table.get_operand(root->arr_name).type == Type::IntPtr || symbol_table.get_operand(root->arr_name).type == Type::FloatPtr)
@@ -467,7 +472,7 @@ void Analyzer::analysisFuncDef(FuncDef *root, ir::Function *func)
     {
         func->name = dynamic_cast<Term *>(root->children[1])->token.value;
     }
-    this->symbol_table.functions[func->name]=func;
+    this->symbol_table.functions[func->name] = func;
     this->symbol_table.add_scope(new Block());
     GET_CHILD_PTR(node, FuncFParams, 3);
     if (node)
@@ -549,13 +554,9 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         ANALYSIS(lvalNode, LVal, 0);
         inst->op = Operator::mov;
         inst->des = this->symbol_table.get_operand(lvalNode->v);
-        if (expNode->t == Type::Int || expNode->t == Type::Float)
+        if (expNode->t != Type::IntPtr && expNode->t != Type::FloatPtr)
         {
             inst->op1 = this->symbol_table.get_operand(expNode->v);
-        }
-        else if (expNode->t == Type::IntLiteral || expNode->t == Type::FloatLiteral)
-        {
-            inst->op1 = expNode->v;
         }
         else
         {
@@ -643,7 +644,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         int while_cond_size = buffer.size() - while_cond_idx - while_body_size - 2;
         jumpToWhileEnd->des.name = std::to_string(while_body_size + 1);
 
-        jumpToWhileCond->des.name = std::to_string(-(while_body_size + while_cond_size + 2));
+        jumpToWhileCond->des.name = std::to_string(-(while_body_size + while_cond_size + 2)+1);
 
         // 将break和continue语句该前往的pc位置恢复为上一个循环的位置
         this->break_pc = prev_break_pc;
@@ -661,10 +662,9 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::BREAKTK)
     {
-        this->break_pc = buffer.size();
         ir::Instruction *jumpToWhileEnd = new ir::Instruction(ir::Operand(),
                                                               ir::Operand(),
-                                                              ir::Operand(std::to_string(buffer.size() - this->break_pc), ir::Type::IntLiteral), ir::Operator::_goto);
+                                                              ir::Operand(std::to_string(buffer.size() - this->break_pc + 1), ir::Type::IntLiteral), ir::Operator::_goto);
         buffer.push_back(jumpToWhileEnd);
         return;
     }
@@ -991,8 +991,8 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
                 }
                 else
                 {
-                    inst->op2 = root->t == Type::Int ? root->v : node->v;
-                    inst->op1 = root->t == Type::Int ? node->v : root->v;
+                    inst->op1 = root->t == Type::Int ? this->symbol_table.get_operand(root->v) : this->symbol_table.get_operand(node->v);
+                    inst->op2 = root->t == Type::Int ? this->symbol_table.get_operand(node->v) : this->symbol_table.get_operand(root->v);
                 }
                 root->v = this->symbol_table.get_operand(desName).name;
                 buffer.push_back(inst);
