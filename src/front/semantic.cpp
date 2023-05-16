@@ -26,8 +26,12 @@ using ir::Operator;
 #define STR_MUL(x, y) (std::to_string(std::stoi(x) * std::stoi(y)))
 #define STR_DIV(x, y) (std::to_string(std::stoi(x) / std::stoi(y)))
 #define STR_MOD(x, y) (std::to_string(std::stoi(x) % std::stoi(y)))
-#define IS_INT_T(t) (t == Type::Int || t == Type::IntLiteral)
-#define IS_FLOAT_T(t) (t == Type::Float || t == Type::FloatLiteral)
+#define IS_FLOAT_T(t) (t == ir::Type::Float || t == ir::Type::FloatLiteral)
+
+inline bool IS_INT_T(ir::Type t)
+{
+    return t == Type::Int || t == Type::IntLiteral || t == Type::IntPtr;
+}
 
 bool isNumber(std::string s, bool &isFloat)
 {
@@ -371,10 +375,9 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
             break;
         }
     }
-    auto parent = dynamic_cast<VarDecl *>(root->parent);
     if (dimensions->size())
     {
-        parent->t = parent->t == Type::Int ? Type::IntPtr : Type::FloatPtr;
+        dynamic_cast<VarDecl *>(root->parent)->t = IS_INT_T(dynamic_cast<VarDecl *>(root->parent)->t) ? Type::IntPtr : Type::FloatPtr;
     }
     this->add_symbol(root->arr_name, dimensions, dynamic_cast<VarDecl *>(root->parent)->t);
 
@@ -487,7 +490,7 @@ void Analyzer::analysisFuncDef(FuncDef *root, ir::Function *func)
     auto &buffer = func->InstVec;
     ANALYSIS(node3, Block, root->children.size() - 1);
     this->symbol_table.exit_scope();
-    func->InstVec.push_back(new ir::Instruction(symbol_table.get_operand("0"),Operand(),Operand(),Operator::_return));
+    func->InstVec.push_back(new ir::Instruction(symbol_table.get_operand("0"), Operand(), Operand(), Operator::_return));
 }
 void Analyzer::analysisFuncType(FuncType *root, ir::Type &buffer)
 {
@@ -505,15 +508,40 @@ void Analyzer::analysisFuncType(FuncType *root, ir::Type &buffer)
         buffer = ir::Type::Float;
     }
 }
-void Analyzer::analysisFuncFParam(FuncFParam *root, vector<ir::Operand> &oprands)
+void Analyzer::analysisFuncFParam(FuncFParam *root, vector<ir::Operand> &operands)
 {
     auto buffer = this->g_init_inst;
-    ANALYSIS(node, BType, 0);
-    auto name = dynamic_cast<Term *>(root->children[1])->token.value;
-    // TODO support more param type
-    this->add_symbol(name, nullptr, node->t);
-    oprands.push_back(this->symbol_table.get_operand(name));
+    auto bTypeNode = dynamic_cast<BType *>(root->children[0]);
+    analysisBType(bTypeNode, buffer);
+    auto nameNode = dynamic_cast<Term *>(root->children[1]);
+    auto name = nameNode->token.value;
+    bool isArray = false;
+    for (int i = 2; i < root->children.size(); i++)
+    {
+        if (dynamic_cast<Term *>(root->children[i])->token.type == TokenType::LBRACK)
+        {
+            isArray = true;
+            break;
+        }
+    }
+
+    ir::Type finalType = bTypeNode->t;
+    if (isArray)
+    {
+        if (IS_INT_T(finalType))
+        {
+            finalType = Type::IntPtr;
+        }
+        else if (IS_FLOAT_T(finalType))
+        {
+            finalType = Type::FloatPtr;
+        }
+    }
+
+    this->add_symbol(name, nullptr, finalType);
+    operands.push_back(this->symbol_table.get_operand(name));
 }
+
 void Analyzer::analysisFuncFParams(FuncFParams *root, vector<ir::Operand> &buffer)
 {
     ANALYSIS(node, FuncFParam, 0);
@@ -559,7 +587,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         ANALYSIS(lvalNode, LVal, 0);
         inst->op = Operator::mov;
         inst->des = this->symbol_table.get_operand(lvalNode->v);
-        if (expNode->t != Type::IntPtr && expNode->t != Type::FloatPtr)
+        if (lvalNode->t != Type::IntPtr && lvalNode->t != Type::FloatPtr)
         {
             inst->op1 = this->symbol_table.get_operand(expNode->v);
         }
@@ -577,6 +605,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
                 storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
                 buffer.push_back(storeInst);
             }
+            return;
         }
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::IFTK)
@@ -659,7 +688,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
     {
         ir::Instruction *jumpToWhileCond = new ir::Instruction(ir::Operand(),
                                                                ir::Operand(),
-                                                               ir::Operand(std::to_string(this->continue_pc-(int)buffer.size()), ir::Type::IntLiteral), ir::Operator::_goto);
+                                                               ir::Operand(std::to_string(this->continue_pc - (int)buffer.size()), ir::Type::IntLiteral), ir::Operator::_goto);
         buffer.push_back(jumpToWhileCond);
         return;
     }
@@ -705,11 +734,17 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         ANALYSIS(node, Exp, 0);
         return;
     }
+
+    if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::SEMICN)
+    {
+        return;
+    }
     buffer.push_back(inst);
 }
 
 void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
 {
+    //todo:support use variable to index ptr
     string buffer = this->symbol_table.get_scoped_name(dynamic_cast<Term *>(root->children[0])->token.value);
     root->v = this->symbol_table.get_operand(buffer).name;
     root->t = this->symbol_table.get_operand(buffer).type;
@@ -720,7 +755,7 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
         ANALYSIS(node, Exp, i + 1);
         dimen.push_back(stoi(node->v));
     }
-    int ind = dimen.size()?0:-1;  
+    int ind = dimen.size() ? 0 : -1;
     if (dimen.size())
     {
         for (auto i = 0; i < dimen.size() - 1; ++i)
@@ -764,7 +799,7 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
     {
         ANALYSIS(node, LVal, 0);
         COPY_EXP_NODE(node, root);
-        if (node->i!=-1)
+        if (node->i != -1)
         {
             ir::Instruction *loadInst = new ir::Instruction();
             loadInst->op = Operator::load;
@@ -839,9 +874,10 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
     }
     string func = dynamic_cast<Term *>(root->children[0])->token.value;
     ir::Type returnType;
-    auto lib_funcs=get_lib_funcs();
-    if(lib_funcs->count(func)){
-        returnType=(*lib_funcs)[func]->returnType;
+    auto lib_funcs = get_lib_funcs();
+    if (lib_funcs->count(func))
+    {
+        returnType = (*lib_funcs)[func]->returnType;
     }
     for (auto funct : this->symbol_table.functions)
     {
@@ -869,7 +905,7 @@ void Analyzer::analysisFuncRParams(FuncRParams *root, vector<ir::Instruction *> 
 {
     ANALYSIS(node0, Exp, 0);
     this->funcRParam_ret.push_back(this->symbol_table.get_operand(node0->v));
-    for (auto i = 2; i < root->children.size(); ++i)
+    for (auto i = 2; i < root->children.size(); i += 2)
     {
         ANALYSIS(node, Exp, i);
         this->funcRParam_ret.push_back(this->symbol_table.get_operand(node->v));
@@ -895,7 +931,7 @@ void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
             {
                 // TODO: consider float
                 ir::Instruction *inst = new ir::Instruction();
-                inst->op = IS_INT_T(root->t) || IS_INT_T(node->t)? Operator::mul : Operator::fmul;
+                inst->op = IS_INT_T(root->t) || IS_INT_T(node->t) ? Operator::mul : Operator::fmul;
                 string desName = GET_RANDOM_NAM();
                 this->add_symbol(desName, nullptr, Type::Int);
                 inst->des = this->symbol_table.get_operand(desName);

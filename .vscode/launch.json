@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "debugger",
-      "type": "lldb",
+      "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/compiler",
       "args": [
@@ -12,7 +12,17 @@
         "-o",
         "./aaa.txt"
       ],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "preLaunchTask": "build",
+      "setupCommands": [
+        {
+          "description": "为 gdb 启用整齐打印",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
     }
   ]
 }
