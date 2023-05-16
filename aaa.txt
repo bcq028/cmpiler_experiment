@@ -1,0 +1,28 @@
+int main()
+	0: call t0, global()
+	1: mov i_2, 0
+	2: mov sum_2, 0
+	3: lss random_0, i_2, 100
+	4: not random_1, random_0
+	5: if random_1 goto [pc, 12]
+	6: eq random_2, i_2, 50
+	7: not random_3, random_2
+	8: if random_3 goto [pc, 3]
+	9: goto [pc, 7]
+	10: goto [pc, 1]
+	11: add random_4, sum_2, i_2
+	12: mov sum_2, random_4
+	13: mov random_5, 1
+	14: add random_6, i_2, 1
+	15: mov i_2, random_6
+	16: goto [pc, -13]
+	17: return sum_2
+	18: return 0
+end
+
+void global()
+	0: __unuse__ null, null, null
+	1: return null
+end
+
+GVT:

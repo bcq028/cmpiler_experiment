@@ -79,6 +79,8 @@ namespace frontend
         // reject copy & assignment
         Analyzer(const Analyzer &) = delete;
         Analyzer &operator=(const Analyzer &) = delete;
+
+        void processExp(vector<ir::Instruction*>& buffer,const ir::Operand& t1,const ir::Operand& t2,ir::Operand* des,char c);
         void add_symbol(string id,vector<int>* dimension,Type);
         void analysisCompUnit(CompUnit *,ir::Program&);
         void analysisDecl(Decl *,vector<ir::Instruction*>&);

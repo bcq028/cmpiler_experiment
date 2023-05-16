@@ -204,6 +204,67 @@ ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 
 using namespace frontend;
 
+void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, char c)
+{
+    ir::Instruction *inst = new ir::Instruction();
+
+    string t1_name = t1.name;
+    string t2_name = t2.name;
+
+    if (t1.type == Type::IntLiteral)
+    {
+        t1_name = GET_RANDOM_NAM();
+        add_symbol(t1_name, nullptr, Type::Int);
+        ir::Instruction *mov_inst = new ir::Instruction();
+        mov_inst->op = Operator::mov;
+        mov_inst->op1 = t1;
+        mov_inst->des = symbol_table.get_operand(t1_name);
+        buffer.push_back(mov_inst);
+    }
+
+    if (t2.type == Type::IntLiteral)
+    {
+        t2_name = GET_RANDOM_NAM();
+        add_symbol(t2_name, nullptr, Type::Int);
+        ir::Instruction *mov_inst = new ir::Instruction();
+        mov_inst->op = Operator::mov;
+        mov_inst->op1 = t2;
+        mov_inst->des = symbol_table.get_operand(t2_name);
+        buffer.push_back(mov_inst);
+    }
+
+    if (c == '+')
+    {
+        inst->op = Operator::add;
+    }
+    else if (c == '-')
+    {
+        inst->op = Operator::sub;
+    }
+    else if (c == '*')
+    {
+        inst->op = Operator::mul;
+    }
+    else if (c == '/')
+    {
+        inst->op = Operator::div;
+    }
+    else if (c == '%')
+    {
+        inst->op = Operator::mod;
+    }
+
+    string ret_name = GET_RANDOM_NAM();
+    add_symbol(ret_name, nullptr, Type::Int);
+    inst->op = Operator::add;
+    inst->op1 = t1;
+    inst->op2 = t2;
+    inst->des = symbol_table.get_operand(ret_name);
+    des->name = symbol_table.get_operand(ret_name).name;
+    des->type = Type::Int;
+    buffer.push_back(inst);
+}
+
 void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
 {
     ir::Function *buffer = new ir::Function();
@@ -744,28 +805,31 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
 
 void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
 {
-    //todo:support use variable to index ptr
     string buffer = this->symbol_table.get_scoped_name(dynamic_cast<Term *>(root->children[0])->token.value);
     root->v = this->symbol_table.get_operand(buffer).name;
     root->t = this->symbol_table.get_operand(buffer).type;
-    vector<int> dimen;
+    vector<ir::Operand> dimen;
     for (auto i = 1; i < root->children.size(); i += 3)
     {
         auto &buffer = insts;
         ANALYSIS(node, Exp, i + 1);
-        dimen.push_back(stoi(node->v));
+        dimen.push_back(symbol_table.get_operand(node->v));
     }
-    int ind = dimen.size() ? 0 : -1;
-    if (dimen.size())
+
+    if (!dimen.size())
+        return;
+
+    ir::Operand *ret = new ir::Operand();
+    for (auto i = 0; i < dimen.size() - 1; ++i)
     {
-        for (auto i = 0; i < dimen.size() - 1; ++i)
-        {
-            ind += dimen[i] * this->symbol_table.get_ste(root->v).dimension[i];
-        }
-        ind += dimen[dimen.size() - 1];
+        ir::Operand *t = new ir::Operand();
+        processExp(insts, dimen[i], ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[i]), Type::IntLiteral), t, '*');
+        processExp(insts, *ret, *t, ret, '+');
     }
-    root->i = ind;
+    processExp(insts, *ret, dimen[dimen.size() - 1], ret, '+');
+    root->i = ret->name;
 }
+
 void Analyzer::analysisExp(Exp *root, vector<ir::Instruction *> &buffer)
 {
     ANALYSIS(node, AddExp, 0);
@@ -799,12 +863,12 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
     {
         ANALYSIS(node, LVal, 0);
         COPY_EXP_NODE(node, root);
-        if (node->i != -1)
+        if (node->t == Type::IntLiteral || node->t == Type::FloatLiteral)
         {
             ir::Instruction *loadInst = new ir::Instruction();
             loadInst->op = Operator::load;
             loadInst->op1 = symbol_table.get_operand(node->v);
-            loadInst->op2 = Operand(std::to_string(node->i), Type::IntLiteral);
+            loadInst->op2 = symbol_table.get_operand(node->i);
             string desName = GET_RANDOM_NAM();
             this->add_symbol(desName, nullptr, Type::Int);
             loadInst->des = this->symbol_table.get_operand(desName);
@@ -923,79 +987,21 @@ void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
         GET_CHILD_PTR(node2, Term, i - 1);
         if (node2->token.type == TokenType::MULT)
         {
-            if (node->t == Type::IntLiteral && root->t == Type::IntLiteral)
-            {
-                root->v = STR_MUL(root->v, node->v);
-            }
-            else
-            {
-                // TODO: consider float
-                ir::Instruction *inst = new ir::Instruction();
-                inst->op = IS_INT_T(root->t) || IS_INT_T(node->t) ? Operator::mul : Operator::fmul;
-                string desName = GET_RANDOM_NAM();
-                this->add_symbol(desName, nullptr, Type::Int);
-                inst->des = this->symbol_table.get_operand(desName);
-                if (inst->op == Operator::mul)
-                {
-                    inst->op1 = this->symbol_table.get_operand(root->v);
-                    inst->op2 = this->symbol_table.get_operand(node->v);
-                }
-                else
-                {
-                    inst->op2 = root->t == Type::Int ? root->v : node->v;
-                    inst->op1 = root->t == Type::Int ? node->v : root->v;
-                }
-                root->v = this->symbol_table.get_operand(desName).name;
-                buffer.push_back(inst);
-            }
+            ir::Operand *ret = new ir::Operand();
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '*');
+            root->v = ret->name;
         }
         else if (node2->token.type == TokenType::DIV)
         {
-            if (node->t == Type::IntLiteral && root->t == Type::IntLiteral)
-            {
-                root->v = STR_DIV(root->v, node->v);
-            }
-            else
-            {
-                // TODO: consider float
-                ir::Instruction *inst = new ir::Instruction();
-                inst->op = (root->t == Type::IntLiteral || node->t == Type::IntLiteral || root->t == Type::Int || node->t == Type::Int) ? Operator::div : Operator::fdiv;
-                string desName = GET_RANDOM_NAM();
-                this->add_symbol(desName, nullptr, Type::Int);
-                inst->des = this->symbol_table.get_operand(desName);
-                if (inst->op == Operator::div)
-                {
-                    inst->op1 = this->symbol_table.get_operand(root->v);
-                    inst->op2 = this->symbol_table.get_operand(node->v);
-                }
-                else
-                {
-                    inst->op2 = root->t == Type::Int ? root->v : node->v;
-                    inst->op1 = root->t == Type::Int ? node->v : root->v;
-                }
-                root->v = this->symbol_table.get_operand(desName).name;
-                buffer.push_back(inst);
-            }
+            ir::Operand *ret = new ir::Operand();
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '/');
+            root->v = ret->name;
         }
         else if (node2->token.type == TokenType::MOD)
         {
-            if (node->t == Type::IntLiteral && root->t == Type::IntLiteral)
-            {
-                root->v = STR_MOD(root->v, node->v);
-            }
-            else
-            {
-                // TODO: consider float
-                ir::Instruction *inst = new ir::Instruction();
-                inst->op = Operator::mod;
-                string desName = GET_RANDOM_NAM();
-                this->add_symbol(desName, nullptr, Type::Int);
-                inst->des = this->symbol_table.get_operand(desName);
-                inst->op1 = this->symbol_table.get_operand(root->v);
-                inst->op2 = this->symbol_table.get_operand(node->v);
-                root->v = this->symbol_table.get_operand(desName).name;
-                buffer.push_back(inst);
-            }
+            ir::Operand *ret = new ir::Operand();
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '%');
+            root->v = ret->name;
         }
     }
 }
@@ -1011,62 +1017,19 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
 
         if (node2->token.type == TokenType::PLUS)
         {
-            if (node->t == Type::IntLiteral && root->t == Type::IntLiteral)
-            {
-                root->v = STR_ADD(root->v, node->v);
-            }
-            else
-            {
-                // TODO: consider float
-                ir::Instruction *inst = new ir::Instruction();
-                inst->op = root->t == Type::IntLiteral || node->t == Type::IntLiteral ? Operator::addi : Operator::add;
-                string desName = GET_RANDOM_NAM();
-                this->add_symbol(desName, nullptr, Type::Int);
-                inst->des = this->symbol_table.get_operand(desName);
-                if (inst->op == Operator::add)
-                {
-                    inst->op1 = this->symbol_table.get_operand(root->v);
-                    inst->op2 = this->symbol_table.get_operand(node->v);
-                }
-                else
-                {
-                    inst->op1 = root->t == Type::Int ? this->symbol_table.get_operand(root->v) : this->symbol_table.get_operand(node->v);
-                    inst->op2 = root->t == Type::Int ? this->symbol_table.get_operand(node->v) : this->symbol_table.get_operand(root->v);
-                }
-                root->v = this->symbol_table.get_operand(desName).name;
-                buffer.push_back(inst);
-            }
+            ir::Operand *ret = new ir::Operand();
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '+');
+            root->v = ret->name;
         }
         else if (node2->token.type == TokenType::MINU)
         {
-            if (node->t == Type::IntLiteral && root->t == Type::IntLiteral)
-            {
-                root->v = STR_SUB(root->v, node->v);
-            }
-            else
-            {
-                // TODO: consider float
-                ir::Instruction *inst = new ir::Instruction();
-                inst->op = root->t == Type::IntLiteral || node->t == Type::IntLiteral ? Operator::subi : Operator::sub;
-                string desName = GET_RANDOM_NAM();
-                this->add_symbol(desName, nullptr, Type::Int);
-                inst->des = this->symbol_table.get_operand(desName);
-                if (inst->op == Operator::sub)
-                {
-                    inst->op1 = this->symbol_table.get_operand(root->v);
-                    inst->op2 = this->symbol_table.get_operand(node->v);
-                }
-                else
-                {
-                    inst->op1 = root->t == Type::Int ? this->symbol_table.get_operand(root->v) : this->symbol_table.get_operand(node->v);
-                    inst->op2 = root->t == Type::Int ? this->symbol_table.get_operand(node->v) : this->symbol_table.get_operand(root->v);
-                }
-                root->v = this->symbol_table.get_operand(desName).name;
-                buffer.push_back(inst);
-            }
+            ir::Operand *ret = new ir::Operand();
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '-');
+            root->v = ret->name;
         }
     }
 }
+
 void Analyzer::analysisRelExp(RelExp *root, vector<ir::Instruction *> &buffer)
 {
     ANALYSIS(node, AddExp, 0);

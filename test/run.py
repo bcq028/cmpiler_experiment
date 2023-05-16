@@ -39,6 +39,7 @@ def run_compiler(arg1):
             files = os.listdir(testcase_dir)
             src_files = [f for f in files if f[-3:] == ".sy" ]
             for src in src_files:
+                print(src)
                 fname, ftype = src.split('.')
                 cmd = ' '.join([compiler_path, testcase_dir + src, step, "-o", output_dir + fname + "." + oftype])
                 if is_windows:
