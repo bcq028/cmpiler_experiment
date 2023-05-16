@@ -81,6 +81,7 @@ namespace frontend
         Analyzer &operator=(const Analyzer &) = delete;
 
         void processExp(vector<ir::Instruction*>& buffer,const ir::Operand& t1,const ir::Operand& t2,ir::Operand* des,char c);
+        void GOTO(vector<ir::Instruction*>& buffer,int label,const ir::Operand& cond);
         void add_symbol(string id,vector<int>* dimension,Type);
         void analysisCompUnit(CompUnit *,ir::Program&);
         void analysisDecl(Decl *,vector<ir::Instruction*>&);

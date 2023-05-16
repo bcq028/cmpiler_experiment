@@ -21,11 +21,6 @@ using ir::Operator;
     to->v = from->v;                         \
     to->t = from->t;
 
-#define STR_ADD(str1, str2) (std::to_string(std::stoi(str1) + std::stoi(str2)))
-#define STR_SUB(str1, str2) (std::to_string(std::stoi(str1) - std::stoi(str2)))
-#define STR_MUL(x, y) (std::to_string(std::stoi(x) * std::stoi(y)))
-#define STR_DIV(x, y) (std::to_string(std::stoi(x) / std::stoi(y)))
-#define STR_MOD(x, y) (std::to_string(std::stoi(x) % std::stoi(y)))
 #define IS_FLOAT_T(t) (t == ir::Type::Float || t == ir::Type::FloatLiteral)
 
 inline bool IS_INT_T(ir::Type t)
@@ -262,6 +257,14 @@ void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &
     inst->des = symbol_table.get_operand(ret_name);
     des->name = symbol_table.get_operand(ret_name).name;
     des->type = Type::Int;
+    buffer.push_back(inst);
+}
+
+void Analyzer::GOTO(vector<ir::Instruction*>& buffer,int label,const ir::Operand& cond){
+    ir::Instruction * inst=new ir::Instruction();
+    inst->op=Operator::_goto;
+    inst->op1=cond;
+    inst->des=Operand(std::to_string(label-buffer.size()),Type::IntLiteral);
     buffer.push_back(inst);
 }
 
