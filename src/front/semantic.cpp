@@ -206,21 +206,42 @@ ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 }
 
 using namespace frontend;
-void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, char c)
+
+ir::Operand *Analyzer::convert(vector<ir::Instruction *> &buffer, bool int2float, const ir::Operand &op1)
 {
-    if (IS_INT_T(t1.type) || IS_INT_T(t2.type))
+    ir::Instruction *convertInst = new ir::Instruction();
+    auto name = GET_RANDOM_NAM();
+    add_symbol(name, nullptr, int2float ? Type::Float : Type::Int);
+    convertInst->op = int2float ? Operator::cvt_i2f : Operator::cvt_f2i;
+    convertInst->op1 = op1;
+    convertInst->des = symbol_table.get_operand(name);
+    buffer.push_back(convertInst);
+    return &symbol_table.get_operand(name);
+}
+
+void Analyzer::processExp(vector<ir::Instruction *> &buffer, ir::Operand &t1, ir::Operand &t2, ir::Operand *des, char c)
+{
+    if (IS_INT_T(des->type))
     {
-        //todo: add cvt i2f
         processIntExp(buffer, t1, t2, des, c);
     }
     else
     {
-        processIntExp(buffer, t1, t2, des, c);
+        processFloatExp(buffer, t1, t2, des, c);
     }
 }
 
-void Analyzer::processIntExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, char c)
+void Analyzer::processIntExp(vector<ir::Instruction *> &buffer, ir::Operand &t1, ir::Operand &t2, ir::Operand *des, char c)
 {
+
+    if (!IS_INT_T(t1.type))
+    {
+        t1 = *convert(buffer, false, t1);
+    }
+    if (!IS_INT_T(t2.type))
+    {
+        t2 = *convert(buffer, false, t2);
+    }
     ir::Instruction *inst = new ir::Instruction();
 
     string t1_name = t1.name;
@@ -341,8 +362,17 @@ void Analyzer::processIntExp(vector<ir::Instruction *> &buffer, const ir::Operan
     buffer.push_back(inst);
 }
 
-void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, char c)
+void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, ir::Operand &t1, ir::Operand &t2, ir::Operand *des, char c)
 {
+
+    if (IS_INT_T(t1.type))
+    {
+        t1 = *convert(buffer, true, t1);
+    }
+    if (IS_INT_T(t2.type))
+    {
+        t2 = *convert(buffer, true, t2);
+    }
     ir::Instruction *inst = new ir::Instruction();
 
     string t1_name = t1.name;
@@ -963,10 +993,12 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
     for (int i = 0; i < (int)dimen.size() - 1; ++i)
     {
         ir::Operand *t = new ir::Operand();
-        processIntExp(insts, dimen[i], ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[symbol_table.get_ste(root->v).dimension.size() - 1 - i]), Type::IntLiteral), t, '*');
-        processIntExp(insts, *ret, *t, ret, '+');
+        t->type = Type::Int;
+        ir::Operand op1 = ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[symbol_table.get_ste(root->v).dimension.size() - 1 - i]), Type::IntLiteral);
+        processExp(insts, dimen[i], op1, t, '*');
+        processExp(insts, *ret, *t, ret, '+');
     }
-    processIntExp(insts, *ret, dimen[dimen.size() - 1], ret, '+');
+    processExp(insts, *ret, dimen[dimen.size() - 1], ret, '+');
     root->i = ret->name;
 }
 
@@ -1043,7 +1075,9 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
         else if (c == "-")
         {
             ir::Operand *ret = new ir::Operand();
-            processIntExp(buffer, Operand("-1", Type::IntLiteral), symbol_table.get_operand(uexp->v), ret, '*');
+            ret->type = uexp->t;
+            ir::Operand op1 = Operand("-1", Type::IntLiteral);
+            processExp(buffer, op1, symbol_table.get_operand(uexp->v), ret, '*');
             root->v = ret->name;
             root->t = ret->type;
         }
@@ -1113,19 +1147,22 @@ void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
         if (op->token.type == TokenType::MULT)
         {
             ir::Operand *ret = new ir::Operand();
-            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '*');
+            ret->type = root->t;
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '*');
             root->v = ret->name;
         }
         else if (op->token.type == TokenType::DIV)
         {
             ir::Operand *ret = new ir::Operand();
-            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '/');
+            ret->type = root->t;
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '/');
             root->v = ret->name;
         }
         else if (op->token.type == TokenType::MOD)
         {
             ir::Operand *ret = new ir::Operand();
-            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '%');
+            ret->type = root->t;
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '%');
             root->v = ret->name;
         }
     }
@@ -1143,13 +1180,15 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
         if (node2->token.type == TokenType::PLUS)
         {
             ir::Operand *ret = new ir::Operand();
-            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '+');
+            ret->type = root->t;
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '+');
             root->v = ret->name;
         }
         else if (node2->token.type == TokenType::MINU)
         {
             ir::Operand *ret = new ir::Operand();
-            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '-');
+            ret->type = root->t;
+            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '-');
             root->v = ret->name;
         }
     }
