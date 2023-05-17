@@ -98,7 +98,7 @@ void frontend::SymbolTable::exit_scope()
 
 string frontend::SymbolTable::get_scoped_name(string id) const
 {
-    for (auto i = this->scope_stack.size() - 1; i >= 0; i--)
+    for (int i = (int)this->scope_stack.size() - 1; i >= 0; i--)
     {
         auto &table = this->scope_stack[i].table;
         for (auto &&iter : table)
@@ -152,7 +152,7 @@ Operand &frontend::SymbolTable::get_operand(string id)
     bool isFloat;
     if (isNumber(id, isFloat))
     {
-        return *new Operand(id, isFloat ? ir::Type::FloatLiteral : ir::Type::IntLiteral);
+        return *new Operand(id, IS_INT_T(cur_exp_type) ? ir::Type::IntLiteral : ir::Type::FloatLiteral);
     }
     return this->get_ste(id).operand;
 }
@@ -219,7 +219,7 @@ ir::Operand *Analyzer::convert(vector<ir::Instruction *> &buffer, bool int2float
     return &symbol_table.get_operand(name);
 }
 
-void Analyzer::processExp(vector<ir::Instruction *> &buffer, ir::Operand &t1, ir::Operand &t2, ir::Operand *des, char c)
+void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, char c)
 {
     if (IS_INT_T(des->type))
     {
@@ -231,16 +231,17 @@ void Analyzer::processExp(vector<ir::Instruction *> &buffer, ir::Operand &t1, ir
     }
 }
 
-void Analyzer::processIntExp(vector<ir::Instruction *> &buffer, ir::Operand &t1, ir::Operand &t2, ir::Operand *des, char c)
+void Analyzer::processIntExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1o, const ir::Operand &t2o, ir::Operand *des, char c)
 {
+    ir::Operand t1 = t1o, t2 = t2o;
 
-    if (!IS_INT_T(t1.type))
+    if (!IS_INT_T(t1o.type))
     {
-        t1 = *convert(buffer, false, t1);
+        t1 = *convert(buffer, false, t1o);
     }
-    if (!IS_INT_T(t2.type))
+    if (!IS_INT_T(t2o.type))
     {
-        t2 = *convert(buffer, false, t2);
+        t2 = *convert(buffer, false, t2o);
     }
     ir::Instruction *inst = new ir::Instruction();
 
@@ -362,16 +363,17 @@ void Analyzer::processIntExp(vector<ir::Instruction *> &buffer, ir::Operand &t1,
     buffer.push_back(inst);
 }
 
-void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, ir::Operand &t1, ir::Operand &t2, ir::Operand *des, char c)
+void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1o, const ir::Operand &t2o, ir::Operand *des, char c)
 {
+    ir::Operand t1 = t1o, t2 = t2o;
 
-    if (IS_INT_T(t1.type))
+    if (IS_INT_T(t1o.type))
     {
-        t1 = *convert(buffer, true, t1);
+        t1 = *convert(buffer, true, t1o);
     }
-    if (IS_INT_T(t2.type))
+    if (IS_INT_T(t2o.type))
     {
-        t2 = *convert(buffer, true, t2);
+        t2 = *convert(buffer, true, t2o);
     }
     ir::Instruction *inst = new ir::Instruction();
 
@@ -488,6 +490,7 @@ void Analyzer::analysisConstDecl(ConstDecl *root, vector<ir::Instruction *> &buf
 {
     ANALYSIS(node, BType, 1);
     root->t = node->t;
+    symbol_table.cur_exp_type = node->t;
     ANALYSIS(node1, ConstDef, 2);
     this->symbol_table.get_operand(node1->arr_name).type = root->t;
     for (auto i = 3; i < root->children.size(); i += 2)
@@ -502,8 +505,8 @@ void Analyzer::analysisConstDecl(ConstDecl *root, vector<ir::Instruction *> &buf
 void Analyzer::analysisVarDecl(VarDecl *root, vector<ir::Instruction *> &buffer)
 {
     ANALYSIS(node, BType, 0);
-
     root->t = node->t;
+    symbol_table.cur_exp_type = node->t;
     ANALYSIS(node1, VarDef, 1);
     this->symbol_table.get_operand(node1->arr_name).type = root->t;
     for (auto i = 2; i < root->children.size(); i += 2)
@@ -1016,7 +1019,7 @@ void Analyzer::analysisCond(Cond *root, vector<ir::Instruction *> &buffer)
 void Analyzer::analysisNumber(Number *root, string &buffer)
 {
     GET_CHILD_PTR(node, Term, 0);
-    root->t = node->token.type == TokenType::INTLTR ? ir::Type::IntLiteral : ir::Type::FloatLiteral;
+    root->t = IS_INT_T(symbol_table.cur_exp_type) ? ir::Type::IntLiteral : ir::Type::FloatLiteral;
     root->v = node->token.value;
     root->is_computable = true;
 }
@@ -1075,7 +1078,7 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
         else if (c == "-")
         {
             ir::Operand *ret = new ir::Operand();
-            ret->type = uexp->t;
+            ret->type = symbol_table.cur_exp_type;
             ir::Operand op1 = Operand("-1", Type::IntLiteral);
             processExp(buffer, op1, symbol_table.get_operand(uexp->v), ret, '*');
             root->v = ret->name;
@@ -1147,21 +1150,21 @@ void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
         if (op->token.type == TokenType::MULT)
         {
             ir::Operand *ret = new ir::Operand();
-            ret->type = root->t;
+            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '*');
             root->v = ret->name;
         }
         else if (op->token.type == TokenType::DIV)
         {
             ir::Operand *ret = new ir::Operand();
-            ret->type = root->t;
+            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '/');
             root->v = ret->name;
         }
         else if (op->token.type == TokenType::MOD)
         {
             ir::Operand *ret = new ir::Operand();
-            ret->type = root->t;
+            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '%');
             root->v = ret->name;
         }
@@ -1180,14 +1183,14 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
         if (node2->token.type == TokenType::PLUS)
         {
             ir::Operand *ret = new ir::Operand();
-            ret->type = root->t;
+            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '+');
             root->v = ret->name;
         }
         else if (node2->token.type == TokenType::MINU)
         {
             ir::Operand *ret = new ir::Operand();
-            ret->type = root->t;
+            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '-');
             root->v = ret->name;
         }
