@@ -436,7 +436,11 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
     auto parent = dynamic_cast<ConstDecl *>(root->parent);
     if (dimensions->size())
     {
-        parent->t = parent->t == Type::Int ? Type::IntPtr : Type::FloatPtr;
+        parent->t = IS_INT_T(parent->t) ? Type::IntPtr : Type::FloatPtr;
+    }
+    else
+    {
+        parent->t = IS_INT_T(parent->t) ? Type::Int : Type::Float;
     }
     this->add_symbol(root->arr_name, dimensions, dynamic_cast<ConstDecl *>(root->parent)->t);
 
@@ -520,6 +524,10 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
     if (dimensions->size())
     {
         dynamic_cast<VarDecl *>(root->parent)->t = IS_INT_T(dynamic_cast<VarDecl *>(root->parent)->t) ? Type::IntPtr : Type::FloatPtr;
+    }
+    else
+    {
+        dynamic_cast<VarDecl *>(root->parent)->t = IS_INT_T(dynamic_cast<VarDecl *>(root->parent)->t) ? Type::Int : Type::Float;
     }
     this->add_symbol(root->arr_name, dimensions, dynamic_cast<VarDecl *>(root->parent)->t);
 
@@ -766,15 +774,15 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         GOTO(buffer, 0, ir::Operand(), jumpOut);
         if (root->children.size() > 5)
         {
-            jumpToFail->des.name = std::to_string(buffer.size() - jumptoFail_pc);
+            jumpToFail->des.name = std::to_string((int)buffer.size() - jumptoFail_pc);
             ANALYSIS(elseStmt, Stmt, 6);
-            jumpOut->des.name = std::to_string(buffer.size() - jumpOut_pc);
+            jumpOut->des.name = std::to_string((int)buffer.size() - jumpOut_pc);
             insertEmpt(buffer);
         }
         else
         {
-            jumpToFail->des.name = std::to_string(buffer.size() - jumptoFail_pc);
-            jumpOut->des.name = std::to_string(buffer.size() - jumpOut_pc);
+            jumpToFail->des.name = std::to_string((int)buffer.size() - jumptoFail_pc);
+            jumpOut->des.name = std::to_string((int)buffer.size() - jumpOut_pc);
             insertEmpt(buffer);
         }
 
@@ -783,7 +791,6 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
     {
         int prevc_pc = this->continue_pc;
-        int prevb_pc = this->break_pc;
         this->continue_pc = buffer.size();
         ANALYSIS(cond, Cond, 2);
         std::string notCond = GET_RANDOM_NAM();
@@ -798,9 +805,13 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         GOTO(buffer, this->continue_pc, ir::Operand(), nullptr);
         this->continue_pc = prevc_pc;
         insertEmpt(buffer);
-        this->break_inst->des.name = std::to_string(buffer.size() - 1 - this->break_pc);
-        breakwhile_inst->des.name = std::to_string(buffer.size() - 1 - cur_pc);
-        this->break_pc = prevb_pc;
+        for (int i=0;i<this->break_insts.size();++i)
+        {
+            break_insts[i]->des.name = std::to_string((int)buffer.size() - 1 - this->break_pcs[i]);
+        }
+        breakwhile_inst->des.name = std::to_string((int)buffer.size() - 1 - cur_pc);
+        this->break_insts.clear();
+        this->break_pcs.clear();
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)
@@ -810,8 +821,10 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::BREAKTK)
     {
-        GOTO(buffer, 0, ir::Operand(), this->break_inst);
-        this->break_pc = buffer.size() - 1;
+        auto break_inst = new ir::Instruction();
+        this->break_insts.push_back(break_inst);
+        GOTO(buffer, 0, ir::Operand(), break_inst);
+        this->break_pcs.push_back(buffer.size() - 1);
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::RETURNTK)
@@ -877,7 +890,7 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
     for (int i = 0; i < (int)dimen.size() - 1; ++i)
     {
         ir::Operand *t = new ir::Operand();
-        processExp(insts, dimen[i], ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[symbol_table.get_ste(root->v).dimension.size()-1-i]), Type::IntLiteral), t, '*');
+        processExp(insts, dimen[i], ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[symbol_table.get_ste(root->v).dimension.size() - 1 - i]), Type::IntLiteral), t, '*');
         processExp(insts, *ret, *t, ret, '+');
     }
     processExp(insts, *ret, dimen[dimen.size() - 1], ret, '+');

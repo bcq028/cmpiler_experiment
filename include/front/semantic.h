@@ -62,8 +62,8 @@ namespace frontend
     struct Analyzer
     {
         int tmp_cnt;
-        ir::Instruction *break_inst = new ir::Instruction();
-        int break_pc;
+        vector<ir::Instruction*> break_insts;
+        vector<int> break_pcs;
         int continue_pc;
         int if_fail_pc;
         vector<ir::Instruction *> g_init_inst;
