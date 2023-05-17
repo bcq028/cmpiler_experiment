@@ -670,7 +670,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
                 storeInst->op = Operator::store;
                 storeInst->des = this->symbol_table.get_operand(values[i]);
                 storeInst->op1 = this->symbol_table.get_operand(lvalNode->v);
-                storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
+                storeInst->op2 = this->symbol_table.get_operand(lvalNode->i);
                 buffer.push_back(storeInst);
             }
             return;
@@ -881,24 +881,9 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
         }
         else if (c == "-")
         {
-            root->v = GET_RANDOM_NAM();
-            add_symbol(root->v, nullptr, uexp->t);
-            root->v = symbol_table.get_operand(root->v).name;
-            ir::Operator ir_op = IS_INT_T(uexp->t) ? Operator::mul : Operator::fmul;
-            ir::Instruction *inst = new ir::Instruction();
-            inst->op = ir_op;
-            inst->des = this->symbol_table.get_operand(root->v);
-            inst->op1 = this->symbol_table.get_operand(uexp->v);
-            if (IS_INT_T(uexp->t))
-            {
-                inst->op2 = this->symbol_table.get_operand(std::to_string(-1));
-            }
-            else
-            {
-                inst->op2 = this->symbol_table.get_operand(std::to_string(-1.0f));
-            }
-            buffer.push_back(inst);
-            root->t = uexp->t;
+            ir::Operand *ret = new ir::Operand();
+            processExp(buffer,Operand("-1",Type::IntLiteral),symbol_table.get_operand(uexp->v),ret,'*');
+            root->v=ret->name;
         }
         else if (c == "!")
         {
