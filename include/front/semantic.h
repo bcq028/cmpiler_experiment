@@ -61,8 +61,10 @@ namespace frontend
     struct Analyzer
     {
         int tmp_cnt;
+        ir::Instruction* break_inst=new ir::Instruction();
         int break_pc;
         int continue_pc;
+        int if_fail_pc;
         vector<ir::Instruction *> g_init_inst;
         vector<ir::Operand> funcRParam_ret;
         SymbolTable symbol_table;
@@ -80,8 +82,11 @@ namespace frontend
         Analyzer(const Analyzer &) = delete;
         Analyzer &operator=(const Analyzer &) = delete;
 
+        void insertEmpt(vector<ir::Instruction*>&buffer){
+            buffer.push_back(new ir::Instruction(ir::Operand(),ir::Operand(),ir::Operand(),ir::Operator::__unuse__));
+        }
         void processExp(vector<ir::Instruction*>& buffer,const ir::Operand& t1,const ir::Operand& t2,ir::Operand* des,char c);
-        void GOTO(vector<ir::Instruction*>& buffer,int label,const ir::Operand& cond);
+        void GOTO(vector<ir::Instruction*>& buffer,int label,const ir::Operand& cond,ir::Instruction* inst);
         void add_symbol(string id,vector<int>* dimension,Type);
         void analysisCompUnit(CompUnit *,ir::Program&);
         void analysisDecl(Decl *,vector<ir::Instruction*>&);

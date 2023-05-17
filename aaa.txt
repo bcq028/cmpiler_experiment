@@ -1,28 +1,639 @@
 int main()
 	0: call t0, global()
-	1: mov i_2, 0
-	2: mov sum_2, 0
-	3: lss random_0, i_2, 100
-	4: not random_1, random_0
-	5: if random_1 goto [pc, 12]
-	6: eq random_2, i_2, 50
-	7: not random_3, random_2
-	8: if random_3 goto [pc, 3]
-	9: goto [pc, 7]
-	10: goto [pc, 1]
-	11: add random_4, sum_2, i_2
-	12: mov sum_2, random_4
-	13: mov random_5, 1
-	14: add random_6, i_2, 1
-	15: mov i_2, random_6
+	1: mov intt_1, 0
+	2: mov chat_1, 0
+	3: call random_65, getstr(get2_1)
+	4: mov lengets_2, random_65
+	5: lss random_66, i_1, lengets_2
+	6: not random_67, random_66
+	7: if random_67 goto [pc, 290]
+	8: mov random_68, 0
+	9: add random_69, random_68, i_1
+	10: load random_70, get2_1, random_69
+	11: call random_71, isdigit(random_70)
+	12: eq random_72, random_71, 1
+	13: not random_73, random_72
+	14: if random_73 goto [pc, 11]
+	15: mov random_74, 0
+	16: add random_75, random_74, i_1
+	17: load random_76, get2_1, random_75
+	18: mov random_77, 0
+	19: add random_78, random_77, ii_1
+	20: store random_76, get2_1, 0
+	21: mov random_79, 1
+	22: add random_80, ii_1, random_79
+	23: mov ii_1, random_80
+	24: goto [pc, 268]
+	25: mov random_81, 0
+	26: add random_82, random_81, i_1
+	27: load random_83, get2_1, random_82
+	28: eq random_84, random_83, 40
+	29: not random_85, random_84
+	30: if random_85 goto [pc, 3]
+	31: call random_86, chapush(40)
+	32: goto [pc, 1]
+	33: __unuse__ null, null, null
+	34: mov random_87, 0
+	35: add random_88, random_87, i_1
+	36: load random_89, get2_1, random_88
+	37: eq random_90, random_89, 94
+	38: not random_91, random_90
+	39: if random_91 goto [pc, 3]
+	40: call random_92, chapush(94)
+	41: goto [pc, 1]
+	42: __unuse__ null, null, null
+	43: mov random_93, 0
+	44: add random_94, random_93, i_1
+	45: load random_95, get2_1, random_94
+	46: eq random_96, random_95, 41
+	47: not random_97, random_96
+	48: if random_97 goto [pc, 22]
+	49: call random_98, chapop()
+	50: mov c_1, random_98
+	51: neq random_99, c_1, 40
+	52: not random_100, random_99
+	53: if random_100 goto [pc, 15]
+	54: mov random_101, 0
+	55: add random_102, random_101, ii_1
+	56: store 32, get2_1, 0
+	57: mov random_103, 1
+	58: add random_104, ii_1, random_103
+	59: mov random_105, 0
+	60: add random_106, random_105, random_104
+	61: store c_1, get2_1, 0
+	62: mov random_107, 2
+	63: add random_108, ii_1, random_107
+	64: mov ii_1, random_108
+	65: call random_109, chapop()
+	66: mov c_1, random_109
+	67: goto [pc, -16]
+	68: __unuse__ null, null, null
+	69: goto [pc, 1]
+	70: __unuse__ null, null, null
+	71: mov random_110, 0
+	72: add random_111, random_110, i_1
+	73: load random_112, get2_1, random_111
+	74: eq random_113, random_112, 43
+	75: not random_114, random_113
+	76: if random_114 goto [pc, 43]
+	77: mov random_115, 0
+	78: add random_116, random_115, chat_1
+	79: load random_117, chas_1, random_116
+	80: eq random_118, random_117, 43
+	81: mov random_119, 0
+	82: add random_120, random_119, chat_1
+	83: load random_121, chas_1, random_120
+	84: eq random_122, random_121, 45
+	85: mov random_123, 0
+	86: add random_124, random_123, chat_1
+	87: load random_125, chas_1, random_124
+	88: eq random_126, random_125, 42
+	89: mov random_127, 0
+	90: add random_128, random_127, chat_1
+	91: load random_129, chas_1, random_128
+	92: eq random_130, random_129, 47
+	93: mov random_131, 0
+	94: add random_132, random_131, chat_1
+	95: load random_133, chas_1, random_132
+	96: eq random_134, random_133, 37
+	97: mov random_135, 0
+	98: add random_136, random_135, chat_1
+	99: load random_137, chas_1, random_136
+	100: eq random_138, random_137, 94
+	101: or random_139, random_134, random_138
+	102: or random_140, random_130, random_139
+	103: or random_141, random_126, random_140
+	104: or random_142, random_122, random_141
+	105: or random_143, random_118, random_142
+	106: not random_144, random_143
+	107: if random_144 goto [pc, 9]
+	108: call random_145, find()
+	109: eq random_146, random_145, 0
+	110: not random_147, random_146
+	111: if random_147 goto [pc, 3]
+	112: goto [pc, 12785]
+	113: goto [pc, 1]
+	114: __unuse__ null, null, null
+	115: goto [pc, -38]
+	116: __unuse__ null, null, null
+	117: call random_148, chapush(43)
+	118: goto [pc, 1]
+	119: __unuse__ null, null, null
+	120: mov random_149, 0
+	121: add random_150, random_149, i_1
+	122: load random_151, get2_1, random_150
+	123: eq random_152, random_151, 45
+	124: not random_153, random_152
+	125: if random_153 goto [pc, 43]
+	126: mov random_154, 0
+	127: add random_155, random_154, chat_1
+	128: load random_156, chas_1, random_155
+	129: eq random_157, random_156, 43
+	130: mov random_158, 0
+	131: add random_159, random_158, chat_1
+	132: load random_160, chas_1, random_159
+	133: eq random_161, random_160, 45
+	134: mov random_162, 0
+	135: add random_163, random_162, chat_1
+	136: load random_164, chas_1, random_163
+	137: eq random_165, random_164, 42
+	138: mov random_166, 0
+	139: add random_167, random_166, chat_1
+	140: load random_168, chas_1, random_167
+	141: eq random_169, random_168, 47
+	142: mov random_170, 0
+	143: add random_171, random_170, chat_1
+	144: load random_172, chas_1, random_171
+	145: eq random_173, random_172, 37
+	146: mov random_174, 0
+	147: add random_175, random_174, chat_1
+	148: load random_176, chas_1, random_175
+	149: eq random_177, random_176, 94
+	150: or random_178, random_173, random_177
+	151: or random_179, random_169, random_178
+	152: or random_180, random_165, random_179
+	153: or random_181, random_161, random_180
+	154: or random_182, random_157, random_181
+	155: not random_183, random_182
+	156: if random_183 goto [pc, 9]
+	157: call random_184, find()
+	158: eq random_185, random_184, 0
+	159: not random_186, random_185
+	160: if random_186 goto [pc, 3]
+	161: goto [pc, 12785]
+	162: goto [pc, 1]
+	163: __unuse__ null, null, null
+	164: goto [pc, -38]
+	165: __unuse__ null, null, null
+	166: call random_187, chapush(45)
+	167: goto [pc, 1]
+	168: __unuse__ null, null, null
+	169: mov random_188, 0
+	170: add random_189, random_188, i_1
+	171: load random_190, get2_1, random_189
+	172: eq random_191, random_190, 42
+	173: not random_192, random_191
+	174: if random_192 goto [pc, 33]
+	175: mov random_193, 0
+	176: add random_194, random_193, chat_1
+	177: load random_195, chas_1, random_194
+	178: eq random_196, random_195, 42
+	179: mov random_197, 0
+	180: add random_198, random_197, chat_1
+	181: load random_199, chas_1, random_198
+	182: eq random_200, random_199, 47
+	183: mov random_201, 0
+	184: add random_202, random_201, chat_1
+	185: load random_203, chas_1, random_202
+	186: eq random_204, random_203, 37
+	187: mov random_205, 0
+	188: add random_206, random_205, chat_1
+	189: load random_207, chas_1, random_206
+	190: eq random_208, random_207, 94
+	191: or random_209, random_204, random_208
+	192: or random_210, random_200, random_209
+	193: or random_211, random_196, random_210
+	194: not random_212, random_211
+	195: if random_212 goto [pc, 9]
+	196: call random_213, find()
+	197: eq random_214, random_213, 0
+	198: not random_215, random_214
+	199: if random_215 goto [pc, 3]
+	200: goto [pc, 12785]
+	201: goto [pc, 1]
+	202: __unuse__ null, null, null
+	203: goto [pc, -28]
+	204: __unuse__ null, null, null
+	205: call random_216, chapush(42)
+	206: goto [pc, 1]
+	207: __unuse__ null, null, null
+	208: mov random_217, 0
+	209: add random_218, random_217, i_1
+	210: load random_219, get2_1, random_218
+	211: eq random_220, random_219, 47
+	212: not random_221, random_220
+	213: if random_221 goto [pc, 33]
+	214: mov random_222, 0
+	215: add random_223, random_222, chat_1
+	216: load random_224, chas_1, random_223
+	217: eq random_225, random_224, 42
+	218: mov random_226, 0
+	219: add random_227, random_226, chat_1
+	220: load random_228, chas_1, random_227
+	221: eq random_229, random_228, 47
+	222: mov random_230, 0
+	223: add random_231, random_230, chat_1
+	224: load random_232, chas_1, random_231
+	225: eq random_233, random_232, 37
+	226: mov random_234, 0
+	227: add random_235, random_234, chat_1
+	228: load random_236, chas_1, random_235
+	229: eq random_237, random_236, 94
+	230: or random_238, random_233, random_237
+	231: or random_239, random_229, random_238
+	232: or random_240, random_225, random_239
+	233: not random_241, random_240
+	234: if random_241 goto [pc, 9]
+	235: call random_242, find()
+	236: eq random_243, random_242, 0
+	237: not random_244, random_243
+	238: if random_244 goto [pc, 3]
+	239: goto [pc, 12785]
+	240: goto [pc, 1]
+	241: __unuse__ null, null, null
+	242: goto [pc, -28]
+	243: __unuse__ null, null, null
+	244: call random_245, chapush(47)
+	245: goto [pc, 1]
+	246: __unuse__ null, null, null
+	247: mov random_246, 0
+	248: add random_247, random_246, i_1
+	249: load random_248, get2_1, random_247
+	250: eq random_249, random_248, 37
+	251: not random_250, random_249
+	252: if random_250 goto [pc, 33]
+	253: mov random_251, 0
+	254: add random_252, random_251, chat_1
+	255: load random_253, chas_1, random_252
+	256: eq random_254, random_253, 42
+	257: mov random_255, 0
+	258: add random_256, random_255, chat_1
+	259: load random_257, chas_1, random_256
+	260: eq random_258, random_257, 47
+	261: mov random_259, 0
+	262: add random_260, random_259, chat_1
+	263: load random_261, chas_1, random_260
+	264: eq random_262, random_261, 37
+	265: mov random_263, 0
+	266: add random_264, random_263, chat_1
+	267: load random_265, chas_1, random_264
+	268: eq random_266, random_265, 94
+	269: or random_267, random_262, random_266
+	270: or random_268, random_258, random_267
+	271: or random_269, random_254, random_268
+	272: not random_270, random_269
+	273: if random_270 goto [pc, 9]
+	274: call random_271, find()
+	275: eq random_272, random_271, 0
+	276: not random_273, random_272
+	277: if random_273 goto [pc, 3]
+	278: goto [pc, 12785]
+	279: goto [pc, 1]
+	280: __unuse__ null, null, null
+	281: goto [pc, -28]
+	282: __unuse__ null, null, null
+	283: call random_274, chapush(37)
+	284: goto [pc, 1]
+	285: __unuse__ null, null, null
+	286: mov random_275, 0
+	287: add random_276, random_275, ii_1
+	288: store 32, get2_1, 0
+	289: mov random_277, 1
+	290: add random_278, ii_1, random_277
+	291: mov ii_1, random_278
+	292: __unuse__ null, null, null
+	293: mov random_279, 1
+	294: add random_280, i_1, random_279
+	295: mov i_1, random_280
+	296: goto [pc, -291]
+	297: __unuse__ null, null, null
+	298: gtr random_281, chat_1, 0
+	299: not random_282, random_281
+	300: if random_282 goto [pc, 15]
+	301: call random_283, chapop()
+	302: mov c_2, random_283
+	303: mov random_284, 0
+	304: add random_285, random_284, ii_1
+	305: store 32, get2_1, 0
+	306: mov random_286, 1
+	307: add random_287, ii_1, random_286
+	308: mov random_288, 0
+	309: add random_289, random_288, random_287
+	310: store c_2, get2_1, 0
+	311: mov random_290, 2
+	312: add random_291, ii_1, random_290
+	313: mov ii_1, random_291
+	314: goto [pc, -16]
+	315: __unuse__ null, null, null
+	316: mov random_292, 0
+	317: add random_293, random_292, ii_1
+	318: store 64, get2_1, 0
+	319: mov i_1, 1
+	320: mov random_294, 0
+	321: add random_295, random_294, i_1
+	322: load random_296, get2_1, random_295
+	323: neq random_297, random_296, 64
+	324: not random_298, random_297
+	325: if random_298 goto [pc, 141]
+	326: mov random_299, 0
+	327: add random_300, random_299, i_1
+	328: load random_301, get2_1, random_300
+	329: eq random_302, random_301, 43
+	330: mov random_303, 0
+	331: add random_304, random_303, i_1
+	332: load random_305, get2_1, random_304
+	333: eq random_306, random_305, 45
+	334: mov random_307, 0
+	335: add random_308, random_307, i_1
+	336: load random_309, get2_1, random_308
+	337: eq random_310, random_309, 42
+	338: mov random_311, 0
+	339: add random_312, random_311, i_1
+	340: load random_313, get2_1, random_312
+	341: eq random_314, random_313, 47
+	342: mov random_315, 0
+	343: add random_316, random_315, i_1
+	344: load random_317, get2_1, random_316
+	345: eq random_318, random_317, 37
+	346: mov random_319, 0
+	347: add random_320, random_319, i_1
+	348: load random_321, get2_1, random_320
+	349: eq random_322, random_321, 94
+	350: or random_323, random_318, random_322
+	351: or random_324, random_314, random_323
+	352: or random_325, random_310, random_324
+	353: or random_326, random_306, random_325
+	354: or random_327, random_302, random_326
+	355: not random_328, random_327
+	356: if random_328 goto [pc, 67]
+	357: call random_329, intpop()
+	358: mov a_2, random_329
+	359: call random_330, intpop()
+	360: mov b_2, random_330
+	361: mov random_331, 0
+	362: add random_332, random_331, i_1
+	363: load random_333, get2_1, random_332
+	364: eq random_334, random_333, 43
+	365: not random_335, random_334
+	366: if random_335 goto [pc, 4]
+	367: add random_336, a_2, b_2
+	368: mov c_2, random_336
+	369: goto [pc, 1]
+	370: __unuse__ null, null, null
+	371: mov random_337, 0
+	372: add random_338, random_337, i_1
+	373: load random_339, get2_1, random_338
+	374: eq random_340, random_339, 45
+	375: not random_341, random_340
+	376: if random_341 goto [pc, 4]
+	377: sub random_342, b_2, a_2
+	378: mov c_2, random_342
+	379: goto [pc, 1]
+	380: __unuse__ null, null, null
+	381: mov random_343, 0
+	382: add random_344, random_343, i_1
+	383: load random_345, get2_1, random_344
+	384: eq random_346, random_345, 42
+	385: not random_347, random_346
+	386: if random_347 goto [pc, 4]
+	387: mul random_348, a_2, b_2
+	388: mov c_2, random_348
+	389: goto [pc, 1]
+	390: __unuse__ null, null, null
+	391: mov random_349, 0
+	392: add random_350, random_349, i_1
+	393: load random_351, get2_1, random_350
+	394: eq random_352, random_351, 47
+	395: not random_353, random_352
+	396: if random_353 goto [pc, 4]
+	397: div random_354, b_2, a_2
+	398: mov c_2, random_354
+	399: goto [pc, 1]
+	400: __unuse__ null, null, null
+	401: mov random_355, 0
+	402: add random_356, random_355, i_1
+	403: load random_357, get2_1, random_356
+	404: eq random_358, random_357, 37
+	405: not random_359, random_358
+	406: if random_359 goto [pc, 4]
+	407: mod random_360, b_2, a_2
+	408: mov c_2, random_360
+	409: goto [pc, 1]
+	410: __unuse__ null, null, null
+	411: mov random_361, 0
+	412: add random_362, random_361, i_1
+	413: load random_363, get2_1, random_362
+	414: eq random_364, random_363, 94
+	415: not random_365, random_364
+	416: if random_365 goto [pc, 4]
+	417: call random_366, power(b_2, a_2)
+	418: mov c_2, random_366
+	419: goto [pc, 1]
+	420: __unuse__ null, null, null
+	421: call random_367, intpush(c_2)
+	422: goto [pc, 39]
+	423: mov random_368, 0
+	424: add random_369, random_368, i_1
+	425: load random_370, get2_1, random_369
+	426: neq random_371, random_370, 32
+	427: not random_372, random_371
+	428: if random_372 goto [pc, 32]
+	429: mov random_373, 0
+	430: add random_374, random_373, i_1
+	431: load random_375, get2_1, random_374
+	432: mov random_376, 48
+	433: sub random_377, random_375, random_376
+	434: call random_378, intpush(random_377)
+	435: mov ii_1, 1
+	436: add random_379, i_1, ii_1
+	437: mov random_380, 0
+	438: add random_381, random_380, random_379
+	439: load random_382, get2_1, random_381
+	440: neq random_383, random_382, 32
+	441: not random_384, random_383
+	442: if random_384 goto [pc, 12]
+	443: add random_385, i_1, ii_1
+	444: mov random_386, 0
+	445: add random_387, random_386, random_385
+	446: load random_388, get2_1, random_387
+	447: mov random_389, 48
+	448: sub random_390, random_388, random_389
+	449: call random_391, intadd(random_390)
+	450: mov random_392, 1
+	451: add random_393, ii_1, random_392
+	452: mov ii_1, random_393
+	453: goto [pc, -17]
+	454: __unuse__ null, null, null
+	455: add random_394, i_1, ii_1
+	456: mov random_395, 1
+	457: sub random_396, random_394, random_395
+	458: mov i_1, random_396
+	459: goto [pc, 1]
+	460: __unuse__ null, null, null
+	461: __unuse__ null, null, null
+	462: mov random_397, 1
+	463: add random_398, i_1, random_397
+	464: mov i_1, random_398
+	465: goto [pc, -145]
+	466: __unuse__ null, null, null
+	467: mov random_399, 0
+	468: mov random_400, 1
+	469: add random_401, random_399, random_400
+	470: load random_402, ints_1, random_401
+	471: call random_403, putint(random_402)
+	472: return 0
+	473: return 0
+end
+
+int find()
+	0: call random_54, chapop()
+	1: mov c_1, random_54
+	2: mov random_55, 0
+	3: add random_56, random_55, ii_1
+	4: store 32, get2_1, 0
+	5: mov random_57, 1
+	6: add random_58, ii_1, random_57
+	7: mov random_59, 0
+	8: add random_60, random_59, random_58
+	9: store c_1, get2_1, 0
+	10: mov random_61, 2
+	11: add random_62, ii_1, random_61
+	12: mov ii_1, random_62
+	13: eq random_63, chat_1, 0
+	14: not random_64, random_63
+	15: if random_64 goto [pc, 3]
+	16: return 0
+	17: goto [pc, 1]
+	18: __unuse__ null, null, null
+	19: return 1
+	20: return 0
+end
+
+void intadd(int x)
+	0: mov random_41, 0
+	1: add random_42, random_41, intt_1
+	2: load random_43, ints_1, random_42
+	3: mov random_44, 10
+	4: mul random_45, random_43, random_44
+	5: mov random_46, 0
+	6: add random_47, random_46, intt_1
+	7: store random_45, ints_1, 0
+	8: mov random_48, 0
+	9: add random_49, random_48, intt_1
+	10: load random_50, ints_1, random_49
+	11: add random_51, random_50, x
+	12: mov random_52, 0
+	13: add random_53, random_52, intt_1
+	14: store random_51, ints_1, 0
+	15: return 0
+end
+
+int chapop()
+	0: mov random_34, 1
+	1: sub random_35, chat_1, random_34
+	2: mov chat_1, random_35
+	3: mov random_36, 1
+	4: add random_37, chat_1, random_36
+	5: mov random_38, 0
+	6: add random_39, random_38, random_37
+	7: load random_40, chas_1, random_39
+	8: return random_40
+	9: return 0
+end
+
+int intpop()
+	0: mov random_27, 1
+	1: sub random_28, intt_1, random_27
+	2: mov intt_1, random_28
+	3: mov random_29, 1
+	4: add random_30, intt_1, random_29
+	5: mov random_31, 0
+	6: add random_32, random_31, random_30
+	7: load random_33, ints_1, random_32
+	8: return random_33
+	9: return 0
+end
+
+void chapush(int x)
+	0: mov random_23, 1
+	1: add random_24, chat_1, random_23
+	2: mov chat_1, random_24
+	3: mov random_25, 0
+	4: add random_26, random_25, chat_1
+	5: store x, chas_1, 0
+	6: return 0
+end
+
+void intpush(int x)
+	0: mov random_19, 1
+	1: add random_20, intt_1, random_19
+	2: mov intt_1, random_20
+	3: mov random_21, 0
+	4: add random_22, random_21, intt_1
+	5: store x, ints_1, 0
+	6: return 0
+end
+
+int getstr(int* get)
+	0: call random_9, getch()
+	1: mov x_2, random_9
+	2: mov length_2, 0
+	3: neq random_10, x_2, 13
+	4: neq random_11, x_2, 10
+	5: and random_12, random_10, random_11
+	6: not random_13, random_12
+	7: if random_13 goto [pc, 10]
+	8: mov random_14, 0
+	9: add random_15, random_14, length_2
+	10: store x_2, get, 0
+	11: mov random_16, 1
+	12: add random_17, length_2, random_16
+	13: mov length_2, random_17
+	14: call random_18, getch()
+	15: mov x_2, random_18
 	16: goto [pc, -13]
-	17: return sum_2
-	18: return 0
+	17: __unuse__ null, null, null
+	18: return length_2
+	19: return 0
+end
+
+int power(int b,int a)
+	0: mov result_2, 1
+	1: neq random_4, a, 0
+	2: not random_5, random_4
+	3: if random_5 goto [pc, 7]
+	4: mul random_6, result_2, b
+	5: mov result_2, random_6
+	6: mov random_7, 1
+	7: sub random_8, a, random_7
+	8: mov a, random_8
+	9: goto [pc, -8]
+	10: __unuse__ null, null, null
+	11: return result_2
+	12: return 0
+end
+
+int isdigit(int x)
+	0: geq random_0, x, 48
+	1: leq random_1, x, 57
+	2: and random_2, random_0, random_1
+	3: not random_3, random_2
+	4: if random_3 goto [pc, 3]
+	5: return 1
+	6: goto [pc, 1]
+	7: __unuse__ null, null, null
+	8: return 0
+	9: return 0
 end
 
 void global()
 	0: __unuse__ null, null, null
-	1: return null
+	1: alloc ints_1, 10000
+	2: alloc chas_1, 10000
+	3: mov i_1, 0
+	4: mov ii_1, 1
+	5: alloc get_1, 10000
+	6: alloc get2_1, 10000
+	7: return null
 end
 
 GVT:
+	ints_1 int* 10000
+	intt_1 int 0
+	chas_1 int* 10000
+	chat_1 int 0
+	i_1 int 0
+	ii_1 int 0
+	c_1 int 0
+	get_1 int* 10000
+	get2_1 int* 10000

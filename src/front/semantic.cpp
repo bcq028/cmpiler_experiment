@@ -251,20 +251,24 @@ void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &
 
     string ret_name = GET_RANDOM_NAM();
     add_symbol(ret_name, nullptr, Type::Int);
-    inst->op = Operator::add;
-    inst->op1 = t1;
-    inst->op2 = t2;
+    inst->op1 = symbol_table.get_operand(t1_name);
+    inst->op2 = symbol_table.get_operand(t2_name);
     inst->des = symbol_table.get_operand(ret_name);
+
     des->name = symbol_table.get_operand(ret_name).name;
     des->type = Type::Int;
     buffer.push_back(inst);
 }
 
-void Analyzer::GOTO(vector<ir::Instruction*>& buffer,int label,const ir::Operand& cond){
-    ir::Instruction * inst=new ir::Instruction();
-    inst->op=Operator::_goto;
-    inst->op1=cond;
-    inst->des=Operand(std::to_string(label-buffer.size()),Type::IntLiteral);
+void Analyzer::GOTO(vector<ir::Instruction *> &buffer, int label, const ir::Operand &cond, ir::Instruction *inst)
+{
+    if(inst==nullptr){
+        inst=new ir::Instruction();
+    }
+
+    inst->op = Operator::_goto;
+    inst->op1 = cond;
+    inst->des = Operand(std::to_string(label - (int)buffer.size()), Type::IntLiteral);
     buffer.push_back(inst);
 }
 
@@ -679,89 +683,61 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         this->add_symbol(notCond, nullptr, Type::Int);
         ir::Instruction *cmp_inst = new ir::Instruction(this->symbol_table.get_operand(cond->v), ir::Operand(), this->symbol_table.get_operand(notCond), ir::Operator::_not);
         buffer.push_back(cmp_inst);
-
-        ir::Instruction *jumpToElse = new ir::Instruction(this->symbol_table.get_operand(notCond),
-                                                          ir::Operand(),
-                                                          ir::Operand("1", ir::Type::IntLiteral), ir::Operator::_goto);
-
-        buffer.push_back(jumpToElse);
-
-        int if_insts_size = buffer.size();
+        ir::Instruction *jumpToFail=new ir::Instruction();
+        int jumptoFail_pc = buffer.size();
+        GOTO(buffer, 0, symbol_table.get_operand(notCond), jumpToFail);
         ANALYSIS(stmt, Stmt, 4);
-        ir::Instruction *jumpToEnd = new ir::Instruction(ir::Operand(),
-                                                         ir::Operand(),
-                                                         ir::Operand("1", ir::Type::IntLiteral), ir::Operator::_goto);
-
-        buffer.push_back(jumpToEnd);
-
-        if_insts_size = buffer.size() - if_insts_size;
-        jumpToElse->des.name = std::to_string(if_insts_size + 1);
-
+        ir::Instruction *jumpOut=new ir::Instruction();
+        int jumpOut_pc = buffer.size();
+        GOTO(buffer, 0, ir::Operand(), jumpOut);
         if (root->children.size() > 5)
         {
-            int else_insts_size = buffer.size();
+            jumpToFail->des.name = std::to_string(buffer.size() - jumptoFail_pc);
             ANALYSIS(elseStmt, Stmt, 6);
-            else_insts_size = buffer.size() - else_insts_size;
-            jumpToEnd->des.name = std::to_string(else_insts_size + 1);
+            jumpOut->des.name = std::to_string(buffer.size() - jumpOut_pc);
+            insertEmpt(buffer);
         }
+        else
+        {
+            jumpToFail->des.name = std::to_string(buffer.size() - jumptoFail_pc);
+            jumpOut->des.name = std::to_string(buffer.size() - jumpOut_pc);
+            insertEmpt(buffer);
+        }
+
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
     {
-        // 记录上一个循环的break和continue语句该前往的pc位置
-        int prev_break_pc = this->break_pc;
-        int prev_continue_pc = this->continue_pc;
-
-        // 在分析while循环条件之前，将break_pc和continue_pc设为当前buffer的大小
-        this->break_pc = buffer.size();
+        int prevc_pc=this->continue_pc;
+        int prevb_pc=this->break_pc;
         this->continue_pc = buffer.size();
-
-        int while_cond_idx = buffer.size();
         ANALYSIS(cond, Cond, 2);
         std::string notCond = GET_RANDOM_NAM();
         this->add_symbol(notCond, nullptr, Type::Int);
         ir::Instruction *cmp_inst = new ir::Instruction(this->symbol_table.get_operand(cond->v), ir::Operand(), this->symbol_table.get_operand(notCond), ir::Operator::_not);
         buffer.push_back(cmp_inst);
-
-        ir::Instruction *jumpToWhileEnd = new ir::Instruction(this->symbol_table.get_operand(notCond),
-                                                              ir::Operand(),
-                                                              ir::Operand("1", ir::Type::IntLiteral), ir::Operator::_goto);
-
-        buffer.push_back(jumpToWhileEnd);
-
-        int while_body_start_idx = buffer.size();
+        ir::Instruction *breakwhile_inst=new ir::Instruction();
+        int cur_pc=buffer.size();
+        GOTO(buffer,0,symbol_table.get_operand(notCond),breakwhile_inst);
         ANALYSIS(stmt, Stmt, 4);
-        ir::Instruction *jumpToWhileCond = new ir::Instruction(ir::Operand(),
-                                                               ir::Operand(),
-                                                               ir::Operand("1", ir::Type::IntLiteral), ir::Operator::_goto);
-
-        buffer.push_back(jumpToWhileCond);
-
-        int while_body_size = buffer.size() - while_body_start_idx;
-        int while_cond_size = buffer.size() - while_cond_idx - while_body_size - 2;
-        jumpToWhileEnd->des.name = std::to_string(while_body_size + 1);
-
-        jumpToWhileCond->des.name = std::to_string(-(while_body_size + while_cond_size + 2) + 1);
-
-        // 将break和continue语句该前往的pc位置恢复为上一个循环的位置
-        this->break_pc = prev_break_pc;
-        this->continue_pc = prev_continue_pc;
+        // while end, continue
+        GOTO(buffer,this->continue_pc,ir::Operand(),nullptr);
+        this->continue_pc=prevc_pc;
+        insertEmpt(buffer);
+        this->break_inst->des.name = std::to_string(buffer.size() - 1 - this->break_pc);
+        breakwhile_inst->des.name= std::to_string(buffer.size() - 1 - cur_pc);
+        this->break_pc=prevb_pc;
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)
     {
-        ir::Instruction *jumpToWhileCond = new ir::Instruction(ir::Operand(),
-                                                               ir::Operand(),
-                                                               ir::Operand(std::to_string(this->continue_pc - (int)buffer.size()), ir::Type::IntLiteral), ir::Operator::_goto);
-        buffer.push_back(jumpToWhileCond);
+        GOTO(buffer, this->continue_pc, ir::Operand(), nullptr);
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::BREAKTK)
     {
-        ir::Instruction *jumpToWhileEnd = new ir::Instruction(ir::Operand(),
-                                                              ir::Operand(),
-                                                              ir::Operand(std::to_string(buffer.size() - this->break_pc + 1), ir::Type::IntLiteral), ir::Operator::_goto);
-        buffer.push_back(jumpToWhileEnd);
+        GOTO(buffer, 0, ir::Operand(), this->break_inst);
+        this->break_pc = buffer.size() - 1;
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::RETURNTK)
@@ -822,8 +798,8 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
     if (!dimen.size())
         return;
 
-    ir::Operand *ret = new ir::Operand();
-    for (auto i = 0; i < dimen.size() - 1; ++i)
+    ir::Operand *ret = new ir::Operand("0",Type::IntLiteral);
+    for (int i = 0; i < (int)dimen.size() - 1; ++i)
     {
         ir::Operand *t = new ir::Operand();
         processExp(insts, dimen[i], ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[i]), Type::IntLiteral), t, '*');
@@ -847,7 +823,7 @@ void Analyzer::analysisCond(Cond *root, vector<ir::Instruction *> &buffer)
 void Analyzer::analysisNumber(Number *root, string &buffer)
 {
     GET_CHILD_PTR(node, Term, 0);
-    root->t = node->token.type == TokenType::INTLTR ? ir::Type::Int : ir::Type::Float;
+    root->t = node->token.type == TokenType::INTLTR ? ir::Type::IntLiteral : ir::Type::FloatLiteral;
     root->v = node->token.value;
     root->is_computable = true;
 }
@@ -866,7 +842,7 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
     {
         ANALYSIS(node, LVal, 0);
         COPY_EXP_NODE(node, root);
-        if (node->t == Type::IntLiteral || node->t == Type::FloatLiteral)
+        if (node->i!="")
         {
             ir::Instruction *loadInst = new ir::Instruction();
             loadInst->op = Operator::load;
@@ -987,20 +963,20 @@ void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
     for (auto i = 2; i < root->children.size(); i += 2)
     {
         ANALYSIS(node, UnaryExp, i);
-        GET_CHILD_PTR(node2, Term, i - 1);
-        if (node2->token.type == TokenType::MULT)
+        GET_CHILD_PTR(op, Term, i - 1);
+        if (op->token.type == TokenType::MULT)
         {
             ir::Operand *ret = new ir::Operand();
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '*');
             root->v = ret->name;
         }
-        else if (node2->token.type == TokenType::DIV)
+        else if (op->token.type == TokenType::DIV)
         {
             ir::Operand *ret = new ir::Operand();
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '/');
             root->v = ret->name;
         }
-        else if (node2->token.type == TokenType::MOD)
+        else if (op->token.type == TokenType::MOD)
         {
             ir::Operand *ret = new ir::Operand();
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '%');
