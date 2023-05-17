@@ -206,8 +206,20 @@ ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 }
 
 using namespace frontend;
-
 void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, char c)
+{
+    if (IS_INT_T(t1.type) || IS_INT_T(t2.type))
+    {
+        //todo: add cvt i2f
+        processIntExp(buffer, t1, t2, des, c);
+    }
+    else
+    {
+        processIntExp(buffer, t1, t2, des, c);
+    }
+}
+
+void Analyzer::processIntExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, char c)
 {
     ir::Instruction *inst = new ir::Instruction();
 
@@ -326,6 +338,67 @@ void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &
 
     des->name = symbol_table.get_operand(ret_name).name;
     des->type = Type::Int;
+    buffer.push_back(inst);
+}
+
+void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, char c)
+{
+    ir::Instruction *inst = new ir::Instruction();
+
+    string t1_name = t1.name;
+    string t2_name = t2.name;
+
+    if (t1.type == Type::FloatLiteral)
+    {
+        t1_name = GET_RANDOM_NAM();
+        add_symbol(t1_name, nullptr, Type::Float);
+        ir::Instruction *mov_inst = new ir::Instruction();
+        mov_inst->op = Operator::fmov;
+        mov_inst->op1 = t1;
+        mov_inst->des = symbol_table.get_operand(t1_name);
+        buffer.push_back(mov_inst);
+    }
+
+    if (t2.type == Type::FloatLiteral)
+    {
+        t2_name = GET_RANDOM_NAM();
+        add_symbol(t2_name, nullptr, Type::Float);
+        ir::Instruction *mov_inst = new ir::Instruction();
+        mov_inst->op = Operator::fmov;
+        mov_inst->op1 = t2;
+        mov_inst->des = symbol_table.get_operand(t2_name);
+        buffer.push_back(mov_inst);
+    }
+
+    if (c == '+')
+    {
+        inst->op = Operator::fadd;
+    }
+    else if (c == '-')
+    {
+        inst->op = Operator::fsub;
+    }
+    else if (c == '*')
+    {
+        inst->op = Operator::fmul;
+    }
+    else if (c == '/')
+    {
+        inst->op = Operator::fdiv;
+    }
+    else if (c == '%')
+    {
+        assert(0 && "mod float not supported");
+    }
+
+    string ret_name = GET_RANDOM_NAM();
+    add_symbol(ret_name, nullptr, Type::Float);
+    inst->op1 = symbol_table.get_operand(t1_name);
+    inst->op2 = symbol_table.get_operand(t2_name);
+    inst->des = symbol_table.get_operand(ret_name);
+
+    des->name = symbol_table.get_operand(ret_name).name;
+    des->type = Type::Float;
     buffer.push_back(inst);
 }
 
@@ -805,7 +878,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         GOTO(buffer, this->continue_pc, ir::Operand(), nullptr);
         this->continue_pc = prevc_pc;
         insertEmpt(buffer);
-        for (int i=0;i<this->break_insts.size();++i)
+        for (int i = 0; i < this->break_insts.size(); ++i)
         {
             break_insts[i]->des.name = std::to_string((int)buffer.size() - 1 - this->break_pcs[i]);
         }
@@ -890,10 +963,10 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
     for (int i = 0; i < (int)dimen.size() - 1; ++i)
     {
         ir::Operand *t = new ir::Operand();
-        processExp(insts, dimen[i], ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[symbol_table.get_ste(root->v).dimension.size() - 1 - i]), Type::IntLiteral), t, '*');
-        processExp(insts, *ret, *t, ret, '+');
+        processIntExp(insts, dimen[i], ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[symbol_table.get_ste(root->v).dimension.size() - 1 - i]), Type::IntLiteral), t, '*');
+        processIntExp(insts, *ret, *t, ret, '+');
     }
-    processExp(insts, *ret, dimen[dimen.size() - 1], ret, '+');
+    processIntExp(insts, *ret, dimen[dimen.size() - 1], ret, '+');
     root->i = ret->name;
 }
 
@@ -970,7 +1043,7 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
         else if (c == "-")
         {
             ir::Operand *ret = new ir::Operand();
-            processExp(buffer, Operand("-1", Type::IntLiteral), symbol_table.get_operand(uexp->v), ret, '*');
+            processIntExp(buffer, Operand("-1", Type::IntLiteral), symbol_table.get_operand(uexp->v), ret, '*');
             root->v = ret->name;
             root->t = ret->type;
         }
@@ -1040,19 +1113,19 @@ void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
         if (op->token.type == TokenType::MULT)
         {
             ir::Operand *ret = new ir::Operand();
-            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '*');
+            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '*');
             root->v = ret->name;
         }
         else if (op->token.type == TokenType::DIV)
         {
             ir::Operand *ret = new ir::Operand();
-            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '/');
+            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '/');
             root->v = ret->name;
         }
         else if (op->token.type == TokenType::MOD)
         {
             ir::Operand *ret = new ir::Operand();
-            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '%');
+            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '%');
             root->v = ret->name;
         }
     }
@@ -1070,13 +1143,13 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
         if (node2->token.type == TokenType::PLUS)
         {
             ir::Operand *ret = new ir::Operand();
-            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '+');
+            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '+');
             root->v = ret->name;
         }
         else if (node2->token.type == TokenType::MINU)
         {
             ir::Operand *ret = new ir::Operand();
-            processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '-');
+            processIntExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '-');
             root->v = ret->name;
         }
     }
