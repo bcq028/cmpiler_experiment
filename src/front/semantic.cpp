@@ -23,6 +23,12 @@ using ir::Operator;
 
 #define IS_FLOAT_T(t) (t == ir::Type::Float || t == ir::Type::FloatLiteral)
 
+#define STR_ADD(str1, str2) (std::to_string(std::stoi(str1) + std::stoi(str2)))
+#define STR_SUB(str1, str2) (std::to_string(std::stoi(str1) - std::stoi(str2)))
+#define STR_MUL(x, y) (std::to_string(std::stoi(x) * std::stoi(y)))
+#define STR_DIV(x, y) (std::to_string(std::stoi(x) / std::stoi(y)))
+#define STR_MOD(x, y) (std::to_string(std::stoi(x) % std::stoi(y)))
+
 inline bool IS_INT_T(ir::Type t)
 {
     return t == Type::Int || t == Type::IntLiteral || t == Type::IntPtr;
@@ -141,6 +147,8 @@ void frontend::Analyzer::add_symbol(string id, vector<int> *dimension, Type t)
 
 Operand &frontend::SymbolTable::get_operand(string id)
 {
+    if (const_val_map.count(id))
+        return *(new Operand(std::to_string(const_val_map[id]), Type::IntLiteral));
     bool isFloat;
     if (isNumber(id, isFloat))
     {
@@ -206,46 +214,107 @@ void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &
     string t1_name = t1.name;
     string t2_name = t2.name;
 
-    if (t1.type == Type::IntLiteral)
+    auto process_no_i = [&]()
     {
-        t1_name = GET_RANDOM_NAM();
-        add_symbol(t1_name, nullptr, Type::Int);
-        ir::Instruction *mov_inst = new ir::Instruction();
-        mov_inst->op = Operator::mov;
-        mov_inst->op1 = t1;
-        mov_inst->des = symbol_table.get_operand(t1_name);
-        buffer.push_back(mov_inst);
-    }
+        if (t1.type == Type::IntLiteral)
+        {
+            t1_name = GET_RANDOM_NAM();
+            add_symbol(t1_name, nullptr, Type::Int);
+            ir::Instruction *mov_inst = new ir::Instruction();
+            mov_inst->op = Operator::mov;
+            mov_inst->op1 = t1;
+            mov_inst->des = symbol_table.get_operand(t1_name);
+            buffer.push_back(mov_inst);
+        }
 
-    if (t2.type == Type::IntLiteral)
-    {
-        t2_name = GET_RANDOM_NAM();
-        add_symbol(t2_name, nullptr, Type::Int);
-        ir::Instruction *mov_inst = new ir::Instruction();
-        mov_inst->op = Operator::mov;
-        mov_inst->op1 = t2;
-        mov_inst->des = symbol_table.get_operand(t2_name);
-        buffer.push_back(mov_inst);
-    }
+        if (t2.type == Type::IntLiteral)
+        {
+            t2_name = GET_RANDOM_NAM();
+            add_symbol(t2_name, nullptr, Type::Int);
+            ir::Instruction *mov_inst = new ir::Instruction();
+            mov_inst->op = Operator::mov;
+            mov_inst->op1 = t2;
+            mov_inst->des = symbol_table.get_operand(t2_name);
+            buffer.push_back(mov_inst);
+        }
+    };
 
     if (c == '+')
     {
         inst->op = Operator::add;
+
+        if (t1.type == Type::IntLiteral && t2.type == Type::IntLiteral)
+        {
+            des->name = STR_ADD(t1.name, t2.name);
+            des->type = Type::IntLiteral;
+            return;
+        }
+        else if (t1.type == Type::IntLiteral)
+        {
+            inst->op = Operator::addi;
+            t1_name = t2.name;
+            t2_name = t1.name;
+        }
+        else if (t2.type == Type::IntLiteral)
+        {
+            inst->op = Operator::addi;
+            t1_name = t1.name;
+            t2_name = t2.name;
+        }
     }
     else if (c == '-')
     {
         inst->op = Operator::sub;
+        if (t1.type == Type::IntLiteral && t2.type == Type::IntLiteral)
+        {
+            des->name = STR_SUB(t1.name, t2.name);
+            des->type = Type::IntLiteral;
+            return;
+        }
+        else if (t1.type == Type::IntLiteral)
+        {
+            inst->op = Operator::subi;
+            t1_name = t2.name;
+            t2_name = t1.name;
+        }
+        else if (t2.type == Type::IntLiteral)
+        {
+            inst->op = Operator::subi;
+            t1_name = t1.name;
+            t2_name = t2.name;
+        }
     }
     else if (c == '*')
     {
+        if (t1.type == Type::IntLiteral && t2.type == Type::IntLiteral)
+        {
+            des->name = STR_MUL(t1.name, t2.name);
+            des->type = Type::IntLiteral;
+            return;
+        }
+        process_no_i();
         inst->op = Operator::mul;
     }
     else if (c == '/')
     {
+        if (t1.type == Type::IntLiteral && t2.type == Type::IntLiteral)
+        {
+            des->name = STR_DIV(t1.name, t2.name);
+            des->type = Type::IntLiteral;
+            return;
+        }
+        process_no_i();
         inst->op = Operator::div;
     }
     else if (c == '%')
     {
+        if (t1.type == Type::IntLiteral && t2.type == Type::IntLiteral)
+        {
+            des->name = STR_MOD(t1.name, t2.name);
+            des->type = Type::IntLiteral;
+            return;
+        }
+        process_no_i();
         inst->op = Operator::mod;
     }
 
@@ -262,8 +331,9 @@ void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &
 
 void Analyzer::GOTO(vector<ir::Instruction *> &buffer, int label, const ir::Operand &cond, ir::Instruction *inst)
 {
-    if(inst==nullptr){
-        inst=new ir::Instruction();
+    if (inst == nullptr)
+    {
+        inst = new ir::Instruction();
     }
 
     inst->op = Operator::_goto;
@@ -396,6 +466,10 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
                 init->op = Operator::mov;
                 init->op1 = symbol_table.get_operand(node->v);
                 buffer.push_back(init);
+                if (init->op1.type == Type::IntLiteral)
+                {
+                    symbol_table.const_val_map[root->arr_name] = stoi(init->op1.name);
+                }
             }
             else if (symbol_table.get_operand(root->arr_name).type == Type::Float)
             {
@@ -683,11 +757,11 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         this->add_symbol(notCond, nullptr, Type::Int);
         ir::Instruction *cmp_inst = new ir::Instruction(this->symbol_table.get_operand(cond->v), ir::Operand(), this->symbol_table.get_operand(notCond), ir::Operator::_not);
         buffer.push_back(cmp_inst);
-        ir::Instruction *jumpToFail=new ir::Instruction();
+        ir::Instruction *jumpToFail = new ir::Instruction();
         int jumptoFail_pc = buffer.size();
         GOTO(buffer, 0, symbol_table.get_operand(notCond), jumpToFail);
         ANALYSIS(stmt, Stmt, 4);
-        ir::Instruction *jumpOut=new ir::Instruction();
+        ir::Instruction *jumpOut = new ir::Instruction();
         int jumpOut_pc = buffer.size();
         GOTO(buffer, 0, ir::Operand(), jumpOut);
         if (root->children.size() > 5)
@@ -708,25 +782,25 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
     {
-        int prevc_pc=this->continue_pc;
-        int prevb_pc=this->break_pc;
+        int prevc_pc = this->continue_pc;
+        int prevb_pc = this->break_pc;
         this->continue_pc = buffer.size();
         ANALYSIS(cond, Cond, 2);
         std::string notCond = GET_RANDOM_NAM();
         this->add_symbol(notCond, nullptr, Type::Int);
         ir::Instruction *cmp_inst = new ir::Instruction(this->symbol_table.get_operand(cond->v), ir::Operand(), this->symbol_table.get_operand(notCond), ir::Operator::_not);
         buffer.push_back(cmp_inst);
-        ir::Instruction *breakwhile_inst=new ir::Instruction();
-        int cur_pc=buffer.size();
-        GOTO(buffer,0,symbol_table.get_operand(notCond),breakwhile_inst);
+        ir::Instruction *breakwhile_inst = new ir::Instruction();
+        int cur_pc = buffer.size();
+        GOTO(buffer, 0, symbol_table.get_operand(notCond), breakwhile_inst);
         ANALYSIS(stmt, Stmt, 4);
         // while end, continue
-        GOTO(buffer,this->continue_pc,ir::Operand(),nullptr);
-        this->continue_pc=prevc_pc;
+        GOTO(buffer, this->continue_pc, ir::Operand(), nullptr);
+        this->continue_pc = prevc_pc;
         insertEmpt(buffer);
         this->break_inst->des.name = std::to_string(buffer.size() - 1 - this->break_pc);
-        breakwhile_inst->des.name= std::to_string(buffer.size() - 1 - cur_pc);
-        this->break_pc=prevb_pc;
+        breakwhile_inst->des.name = std::to_string(buffer.size() - 1 - cur_pc);
+        this->break_pc = prevb_pc;
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)
@@ -787,6 +861,7 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
     string buffer = this->symbol_table.get_scoped_name(dynamic_cast<Term *>(root->children[0])->token.value);
     root->v = this->symbol_table.get_operand(buffer).name;
     root->t = this->symbol_table.get_operand(buffer).type;
+
     vector<ir::Operand> dimen;
     for (auto i = 1; i < root->children.size(); i += 3)
     {
@@ -798,7 +873,7 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
     if (!dimen.size())
         return;
 
-    ir::Operand *ret = new ir::Operand("0",Type::IntLiteral);
+    ir::Operand *ret = new ir::Operand("0", Type::IntLiteral);
     for (int i = 0; i < (int)dimen.size() - 1; ++i)
     {
         ir::Operand *t = new ir::Operand();
@@ -842,7 +917,7 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
     {
         ANALYSIS(node, LVal, 0);
         COPY_EXP_NODE(node, root);
-        if (node->i!="")
+        if (node->i != "")
         {
             ir::Instruction *loadInst = new ir::Instruction();
             loadInst->op = Operator::load;
@@ -882,8 +957,9 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
         else if (c == "-")
         {
             ir::Operand *ret = new ir::Operand();
-            processExp(buffer,Operand("-1",Type::IntLiteral),symbol_table.get_operand(uexp->v),ret,'*');
-            root->v=ret->name;
+            processExp(buffer, Operand("-1", Type::IntLiteral), symbol_table.get_operand(uexp->v), ret, '*');
+            root->v = ret->name;
+            root->t = ret->type;
         }
         else if (c == "!")
         {
@@ -943,8 +1019,7 @@ void Analyzer::analysisFuncRParams(FuncRParams *root, vector<ir::Instruction *> 
 void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
 {
     ANALYSIS(node, UnaryExp, 0);
-    GET_CHILD_PTR(node1, UnaryExp, 0);
-    COPY_EXP_NODE(node1, root);
+    COPY_EXP_NODE(node, root);
     for (auto i = 2; i < root->children.size(); i += 2)
     {
         ANALYSIS(node, UnaryExp, i);
