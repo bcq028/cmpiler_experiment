@@ -877,7 +877,7 @@ void Analyzer::analysisLVal(LVal *root, vector<ir::Instruction *> &insts)
     for (int i = 0; i < (int)dimen.size() - 1; ++i)
     {
         ir::Operand *t = new ir::Operand();
-        processExp(insts, dimen[i], ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[i]), Type::IntLiteral), t, '*');
+        processExp(insts, dimen[i], ir::Operand(std::to_string(symbol_table.get_ste(root->v).dimension[symbol_table.get_ste(root->v).dimension.size()-1-i]), Type::IntLiteral), t, '*');
         processExp(insts, *ret, *t, ret, '+');
     }
     processExp(insts, *ret, dimen[dimen.size() - 1], ret, '+');
