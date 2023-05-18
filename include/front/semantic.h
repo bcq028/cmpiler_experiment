@@ -48,7 +48,7 @@ namespace frontend
     // definition of symbol table
     struct SymbolTable
     {
-        ir::Type cur_decl_type=Type::null;
+        ir::Type cur_return_type;
         std::map<std::string, int> const_val_map;
         vector<ScopeInfo> scope_stack;
         map<std::string, ir::Function *> functions;
@@ -89,7 +89,9 @@ namespace frontend
         {
             buffer.push_back(new ir::Instruction(ir::Operand(), ir::Operand(), ir::Operand(), ir::Operator::__unuse__));
         }
-        ir::Operand *convert(vector<ir::Instruction *> &buffer,bool int2float, const ir::Operand &op1);
+
+        void assign(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,ir::Operand *des);
+        ir::Operand convert(vector<ir::Instruction *> &buffer,bool int2float, const ir::Operand &op1);
         void processExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
         void processIntExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
         void processFloatExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
