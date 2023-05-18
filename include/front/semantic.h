@@ -48,7 +48,7 @@ namespace frontend
     // definition of symbol table
     struct SymbolTable
     {
-        ir::Type cur_exp_type;
+        ir::Type cur_decl_type=Type::null;
         std::map<std::string, int> const_val_map;
         vector<ScopeInfo> scope_stack;
         map<std::string, ir::Function *> functions;
@@ -62,6 +62,7 @@ namespace frontend
     // singleton class
     struct Analyzer
     {
+        ir::Function* cur_func;
         int tmp_cnt;
         vector<ir::Instruction *> break_insts;
         vector<int> break_pcs;

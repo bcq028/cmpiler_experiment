@@ -21,8 +21,6 @@ using ir::Operator;
     to->v = from->v;                         \
     to->t = from->t;
 
-#define IS_FLOAT_T(t) (t == ir::Type::Float || t == ir::Type::FloatLiteral)
-
 #define STR_ADD(str1, str2) (std::to_string(std::stoi(str1) + std::stoi(str2)))
 #define STR_SUB(str1, str2) (std::to_string(std::stoi(str1) - std::stoi(str2)))
 #define STR_MUL(x, y) (std::to_string(std::stoi(x) * std::stoi(y)))
@@ -34,8 +32,14 @@ inline bool IS_INT_T(ir::Type t)
     return t == Type::Int || t == Type::IntLiteral || t == Type::IntPtr;
 }
 
+inline bool IS_FLOAT_T(ir::Type t)
+{
+    return t == Type::Float || t == Type::FloatLiteral || t == Type::FloatPtr;
+}
+
 bool isNumber(std::string s, bool &isFloat)
 {
+    isFloat = false;
     std::regex num_regex("^[-+]?((\\d+)|(0x[\\da-fA-F]*)|(0o[0-7]*)|(0b[01]*))$");
     for (char c : s)
     {
@@ -152,7 +156,14 @@ Operand &frontend::SymbolTable::get_operand(string id)
     bool isFloat;
     if (isNumber(id, isFloat))
     {
-        return *new Operand(id, IS_INT_T(cur_exp_type) ? ir::Type::IntLiteral : ir::Type::FloatLiteral);
+        ir::Type returnType;
+        if (cur_decl_type != Type::null)
+            returnType = IS_INT_T(cur_decl_type) ? Type::IntLiteral : Type::FloatLiteral;
+        else
+        {
+            returnType = isFloat ? ir::Type::FloatLiteral : ir::Type::IntLiteral;
+        }
+        return *new Operand(id, returnType);
     }
     return this->get_ste(id).operand;
 }
@@ -490,7 +501,7 @@ void Analyzer::analysisConstDecl(ConstDecl *root, vector<ir::Instruction *> &buf
 {
     ANALYSIS(node, BType, 1);
     root->t = node->t;
-    symbol_table.cur_exp_type = node->t;
+    symbol_table.cur_decl_type = node->t;
     ANALYSIS(node1, ConstDef, 2);
     this->symbol_table.get_operand(node1->arr_name).type = root->t;
     for (auto i = 3; i < root->children.size(); i += 2)
@@ -501,12 +512,13 @@ void Analyzer::analysisConstDecl(ConstDecl *root, vector<ir::Instruction *> &buf
             this->symbol_table.get_operand(node->arr_name).type = root->t;
         }
     }
+    symbol_table.cur_decl_type = Type::null;
 }
 void Analyzer::analysisVarDecl(VarDecl *root, vector<ir::Instruction *> &buffer)
 {
     ANALYSIS(node, BType, 0);
     root->t = node->t;
-    symbol_table.cur_exp_type = node->t;
+    symbol_table.cur_decl_type = node->t;
     ANALYSIS(node1, VarDef, 1);
     this->symbol_table.get_operand(node1->arr_name).type = root->t;
     for (auto i = 2; i < root->children.size(); i += 2)
@@ -517,6 +529,7 @@ void Analyzer::analysisVarDecl(VarDecl *root, vector<ir::Instruction *> &buffer)
             this->symbol_table.get_operand(node->arr_name).type = root->t;
         }
     }
+    symbol_table.cur_decl_type = Type::null;
 }
 void Analyzer::analysisBType(BType *root, vector<ir::Instruction *> &buffer)
 {
@@ -669,7 +682,7 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
                 ir::Instruction *init = new ir::Instruction();
                 init->des = this->symbol_table.get_operand(root->arr_name);
                 init->op = Operator::fmov;
-                init->op1 = node->v;
+                init->op1 = symbol_table.get_operand(node->v);
                 buffer.push_back(init);
             }
             else if (symbol_table.get_operand(root->arr_name).type == Type::IntPtr || symbol_table.get_operand(root->arr_name).type == Type::FloatPtr)
@@ -728,6 +741,7 @@ void Analyzer::analysisConstInitVal(ConstInitVal *root, vector<ir::Instruction *
 }
 void Analyzer::analysisFuncDef(FuncDef *root, ir::Function *func)
 {
+    cur_func = func;
     {
         auto &buffer = func->returnType;
         ANALYSIS(node, FuncType, 0);
@@ -1019,7 +1033,17 @@ void Analyzer::analysisCond(Cond *root, vector<ir::Instruction *> &buffer)
 void Analyzer::analysisNumber(Number *root, string &buffer)
 {
     GET_CHILD_PTR(node, Term, 0);
-    root->t = IS_INT_T(symbol_table.cur_exp_type) ? ir::Type::IntLiteral : ir::Type::FloatLiteral;
+    if (symbol_table.cur_decl_type != Type::null)
+    {
+        root->t = IS_INT_T(symbol_table.cur_decl_type) ? Type::IntLiteral : Type::FloatLiteral;
+    }
+    else
+    {
+        bool isFLoat;
+        isNumber(node->token.value, isFLoat);
+        root->t = isFLoat ? Type::FloatLiteral : Type::IntLiteral;
+    }
+
     root->v = node->token.value;
     root->is_computable = true;
 }
@@ -1078,7 +1102,14 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
         else if (c == "-")
         {
             ir::Operand *ret = new ir::Operand();
-            ret->type = symbol_table.cur_exp_type;
+            if (symbol_table.cur_decl_type != Type::null)
+            {
+                ret->type = symbol_table.cur_decl_type;
+            }
+            else
+            {
+                ret->type = uexp->t;
+            }
             ir::Operand op1 = Operand("-1", Type::IntLiteral);
             processExp(buffer, op1, symbol_table.get_operand(uexp->v), ret, '*');
             root->v = ret->name;
@@ -1099,19 +1130,27 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
         }
         return;
     }
+
+    // call function
+
     string func = dynamic_cast<Term *>(root->children[0])->token.value;
     ir::Type returnType;
     auto lib_funcs = get_lib_funcs();
     if (lib_funcs->count(func))
     {
+        this->cur_func = (*lib_funcs)[func];
         returnType = (*lib_funcs)[func]->returnType;
     }
-    for (auto funct : this->symbol_table.functions)
+    else
     {
-        if (funct.first == func)
+        for (auto funct : this->symbol_table.functions)
         {
-            returnType = funct.second->returnType;
-            break;
+            if (funct.first == func)
+            {
+                this->cur_func = funct.second;
+                returnType = funct.second->returnType;
+                break;
+            }
         }
     }
     vector<string> params;
@@ -1147,24 +1186,27 @@ void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
     {
         ANALYSIS(node, UnaryExp, i);
         GET_CHILD_PTR(op, Term, i - 1);
+        ir::Operand *ret = new ir::Operand();
+        if (symbol_table.cur_decl_type != Type::null)
+        {
+            ret->type = symbol_table.cur_decl_type;
+        }
+        else
+        {
+            ret->type = IS_FLOAT_T(node->t) || IS_FLOAT_T(root->t) ? Type::Float : Type::Int;
+        }
         if (op->token.type == TokenType::MULT)
         {
-            ir::Operand *ret = new ir::Operand();
-            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '*');
             root->v = ret->name;
         }
         else if (op->token.type == TokenType::DIV)
         {
-            ir::Operand *ret = new ir::Operand();
-            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '/');
             root->v = ret->name;
         }
         else if (op->token.type == TokenType::MOD)
         {
-            ir::Operand *ret = new ir::Operand();
-            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '%');
             root->v = ret->name;
         }
@@ -1179,18 +1221,22 @@ void Analyzer::analysisAddExp(AddExp *root, vector<ir::Instruction *> &buffer)
     {
         ANALYSIS(node, MulExp, i);
         GET_CHILD_PTR(node2, Term, i - 1);
-
+        ir::Operand *ret = new ir::Operand();
+        if (symbol_table.cur_decl_type != Type::null)
+        {
+            ret->type = symbol_table.cur_decl_type;
+        }
+        else
+        {
+            ret->type = IS_FLOAT_T(node->t) || IS_FLOAT_T(root->t) ? Type::Float : Type::Int;
+        }
         if (node2->token.type == TokenType::PLUS)
         {
-            ir::Operand *ret = new ir::Operand();
-            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '+');
             root->v = ret->name;
         }
         else if (node2->token.type == TokenType::MINU)
         {
-            ir::Operand *ret = new ir::Operand();
-            ret->type = symbol_table.cur_exp_type;
             processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node->v), ret, '-');
             root->v = ret->name;
         }
@@ -1201,7 +1247,7 @@ void Analyzer::analysisRelExp(RelExp *root, vector<ir::Instruction *> &buffer)
 {
     ANALYSIS(node, AddExp, 0);
     COPY_EXP_NODE(node, root);
-    if (root->children.size() > 1)
+    for (size_t i = 2; i < root->children.size(); i += 2)
     {
         ANALYSIS(node2, AddExp, 2);
         auto op = dynamic_cast<Term *>(root->children[1])->token.type;
