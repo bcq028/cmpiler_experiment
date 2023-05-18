@@ -69,7 +69,6 @@ namespace frontend
         int continue_pc;
         int if_fail_pc;
         vector<ir::Instruction *> g_init_inst;
-        vector<ir::Operand> funcRParam_ret;
         SymbolTable symbol_table;
         /**
          * @brief constructor
@@ -119,7 +118,7 @@ namespace frontend
         void analysisNumber(Number *, string &);
         void analysisPrimaryExp(PrimaryExp *, vector<ir::Instruction *> &);
         void analysisUnaryExp(UnaryExp *, vector<ir::Instruction *> &);
-        void analysisFuncRParams(FuncRParams *, vector<ir::Instruction *> &);
+        std::vector<ir::Operand> analysisFuncRParams(FuncRParams *, vector<ir::Instruction *> &);
         void analysisMulExp(MulExp *, vector<ir::Instruction *> &);
         void analysisAddExp(AddExp *, vector<ir::Instruction *> &);
         void analysisRelExp(RelExp *, vector<ir::Instruction *> &);

@@ -213,14 +213,15 @@ ir::Program frontend::Analyzer::get_ir_program(CompUnit *root)
 
 using namespace frontend;
 
-bool IS_SAME_TYPE(Type t1,Type t2){
-    return (IS_INT_T(t1) && IS_INT_T(t2) ) || (IS_FLOAT_T(t1) && IS_FLOAT_T(t2)); 
+bool IS_SAME_TYPE(Type t1, Type t2)
+{
+    return (IS_INT_T(t1) && IS_INT_T(t2)) || (IS_FLOAT_T(t1) && IS_FLOAT_T(t2));
 }
 
 void Analyzer::assign(vector<ir::Instruction *> &buffer, const ir::Operand &t1, ir::Operand *des)
 {
     assert(des->type != Type::null);
-    if (des->name == "null" || des->name=="")
+    if (des->name == "null" || des->name == "")
     {
         auto name = GET_RANDOM_NAM();
         add_symbol(name, nullptr, des->type);
@@ -228,7 +229,7 @@ void Analyzer::assign(vector<ir::Instruction *> &buffer, const ir::Operand &t1, 
     }
 
     ir::Operand val = t1;
-    if (!IS_SAME_TYPE(t1.type,des->type))
+    if (!IS_SAME_TYPE(t1.type, des->type))
     {
         val = convert(buffer, des->type == Type::Int ? false : true, t1);
     }
@@ -250,8 +251,8 @@ ir::Operand Analyzer::convert(vector<ir::Instruction *> &buffer, bool int2float,
     convertInst->des = symbol_table.get_operand(name);
     buffer.push_back(convertInst);
     ir::Operand ret;
-    ret.name= symbol_table.get_operand(name).name;
-    ret.type= symbol_table.get_operand(name).type;
+    ret.name = symbol_table.get_operand(name).name;
+    ret.type = symbol_table.get_operand(name).type;
     return ret;
 }
 
@@ -276,9 +277,10 @@ void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &
         return;
     }
 
-    if (c == TokenType::AND || c == TokenType::OR)
+    if (c == TokenType::AND || c == TokenType::OR || c == TokenType::NOT)
     {
         processIntExp(buffer, t1, t2, des, c);
+        assert(des->type == Type::Int);
         return;
     }
 
@@ -313,7 +315,7 @@ void Analyzer::processIntExp(vector<ir::Instruction *> &buffer, const ir::Operan
     {
         if (t1.type == Type::IntLiteral)
         {
-            ir::Operand *ret=new ir::Operand();
+            ir::Operand *ret = new ir::Operand();
             ret->type = Type::Int;
             assign(buffer, t1, ret);
             t1_name = ret->name;
@@ -321,7 +323,7 @@ void Analyzer::processIntExp(vector<ir::Instruction *> &buffer, const ir::Operan
 
         if (t2.type == Type::IntLiteral)
         {
-            ir::Operand *ret=new ir::Operand();
+            ir::Operand *ret = new ir::Operand();
             ret->type = Type::Int;
             assign(buffer, t2, ret);
             t2_name = ret->name;
@@ -484,7 +486,7 @@ void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, const ir::Oper
 
     if (t1.type == Type::FloatLiteral)
     {
-        ir::Operand *ret=new ir::Operand();
+        ir::Operand *ret = new ir::Operand();
         ret->type = Type::Float;
         assign(buffer, t1, ret);
         t1_name = ret->name;
@@ -492,7 +494,7 @@ void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, const ir::Oper
 
     if (t2.type == Type::FloatLiteral)
     {
-        ir::Operand *ret=new ir::Operand();
+        ir::Operand *ret = new ir::Operand();
         ret->type = Type::Float;
         assign(buffer, t2, ret);
         t2_name = ret->name;
@@ -544,7 +546,9 @@ void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, const ir::Oper
     }
     else if (c == TokenType::NOT)
     {
-        inst->op = Operator::_not;
+        assert(0 &&"not cannot float");
+    }else{
+        assert(0 && "unknown type");
     }
 
     string ret_name = GET_RANDOM_NAM();
@@ -958,8 +962,8 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         ANALYSIS(lvalNode, LVal, 0);
         if (lvalNode->t != Type::IntPtr && lvalNode->t != Type::FloatPtr)
         {
-            assert(lvalNode->v!="");
-            assign(buffer,symbol_table.get_operand(expNode->v),&symbol_table.get_operand(lvalNode->v));
+            assert(lvalNode->v != "");
+            assign(buffer, symbol_table.get_operand(expNode->v), &symbol_table.get_operand(lvalNode->v));
         }
         else
         {
@@ -1198,16 +1202,10 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
         }
         else if (c == "!")
         {
-            root->v = GET_RANDOM_NAM();
-            add_symbol(root->v, nullptr, Type::Int);
-            root->v = symbol_table.get_operand(root->v).name;
-            ir::Operator ir_op = Operator::_not;
-            ir::Instruction *inst = new ir::Instruction();
-            inst->op = ir_op;
-            inst->des = this->symbol_table.get_operand(root->v);
-            inst->op1 = this->symbol_table.get_operand(uexp->v);
-            buffer.push_back(inst);
-            root->t = uexp->t;
+            ir::Operand *des = new ir::Operand();
+            processExp(buffer, this->symbol_table.get_operand(uexp->v), ir::Operand(), des, TokenType::NOT);
+            root->v = des->name;
+            root->t = des->type;
         }
         return;
     }
@@ -1217,6 +1215,7 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
     string func = dynamic_cast<Term *>(root->children[0])->token.value;
     ir::Type returnType;
     auto lib_funcs = get_lib_funcs();
+    ir::Function *lastfunc = this->cur_func;
     if (lib_funcs->count(func))
     {
         this->cur_func = (*lib_funcs)[func];
@@ -1235,28 +1234,43 @@ void Analyzer::analysisUnaryExp(UnaryExp *root, vector<ir::Instruction *> &buffe
         }
     }
     vector<string> params;
+    std::vector<ir::Operand> paramList;
     if (root->children.size() > 3)
     {
         ANALYSIS(rp, FuncRParams, 2);
+        paramList = analysisFuncRParams(dynamic_cast<FuncRParams *>(root->children[2]), buffer);
     }
     string desName = GET_RANDOM_NAM();
     this->add_symbol(desName, nullptr, returnType);
-    std::vector<ir::Operand> paramList = this->funcRParam_ret;
+    assert(paramList.size() == cur_func->ParameterList.size());
+    for (int i = 0; i < paramList.size(); ++i)
+    {
+        if (!IS_SAME_TYPE(paramList[i].type, cur_func->ParameterList[i].type))
+        {
+            ir::Operand *t = new ir::Operand();
+            t->type = cur_func->ParameterList[i].type;
+            assign(buffer, paramList[i], t);
+            paramList[i] = *t;
+        }
+    }
     ir::Instruction *inst = new ir::CallInst(ir::Operand(func, ir::Type::null), paramList,
                                              this->symbol_table.get_operand(desName));
     root->v = this->symbol_table.get_operand(desName).name;
     buffer.push_back(inst);
-    this->funcRParam_ret.clear();
+    this->cur_func = lastfunc;
 }
-void Analyzer::analysisFuncRParams(FuncRParams *root, vector<ir::Instruction *> &buffer)
+std::vector<ir::Operand> Analyzer::analysisFuncRParams(FuncRParams *root, vector<ir::Instruction *> &buffer)
 {
+    std::vector<ir::Operand> funcRParam_ret;
+
     ANALYSIS(node0, Exp, 0);
-    this->funcRParam_ret.push_back(this->symbol_table.get_operand(node0->v));
+    funcRParam_ret.push_back(this->symbol_table.get_operand(node0->v));
     for (auto i = 2; i < root->children.size(); i += 2)
     {
         ANALYSIS(node, Exp, i);
-        this->funcRParam_ret.push_back(this->symbol_table.get_operand(node->v));
+        funcRParam_ret.push_back(this->symbol_table.get_operand(node->v));
     }
+    return funcRParam_ret;
 }
 
 void Analyzer::analysisMulExp(MulExp *root, vector<ir::Instruction *> &buffer)
