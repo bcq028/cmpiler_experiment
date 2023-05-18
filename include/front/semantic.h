@@ -90,9 +90,9 @@ namespace frontend
             buffer.push_back(new ir::Instruction(ir::Operand(), ir::Operand(), ir::Operand(), ir::Operator::__unuse__));
         }
         ir::Operand *convert(vector<ir::Instruction *> &buffer,bool int2float, const ir::Operand &op1);
-        void processExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, char c);
-        void processIntExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, char c);
-        void processFloatExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, char c);
+        void processExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
+        void processIntExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
+        void processFloatExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
         void GOTO(vector<ir::Instruction *> &buffer, int label, const ir::Operand &cond, ir::Instruction *inst);
         void add_symbol(string id, vector<int> *dimension, Type);
         void analysisCompUnit(CompUnit *, ir::Program &);
