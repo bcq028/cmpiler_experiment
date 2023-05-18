@@ -151,6 +151,7 @@ void frontend::Analyzer::add_symbol(string id, vector<int> *dimension, Type t)
 
 Operand &frontend::SymbolTable::get_operand(string id)
 {
+    assert(id != "null" && id != "");
     if (const_val_map.count(id))
         return *(new Operand(std::to_string(const_val_map[id]), Type::IntLiteral));
     bool isFloat;
@@ -216,6 +217,33 @@ using namespace frontend;
 bool IS_SAME_TYPE(Type t1, Type t2)
 {
     return (IS_INT_T(t1) && IS_INT_T(t2)) || (IS_FLOAT_T(t1) && IS_FLOAT_T(t2));
+}
+
+void Analyzer::processLS(vector<ir::Instruction *> &buffer, const ir::Operand &arr, const ir::Operand &ind, ir::Operand *des, bool isLoad)
+{
+    assert(IS_INT_T(ind.type));
+    assert(arr.type == Type::IntPtr || arr.type == Type::FloatPtr);
+    assert(des->type != Type::null);
+    if (des->name == "null" || des->name == "")
+    {
+        auto name = GET_RANDOM_NAM();
+        add_symbol(name, nullptr, des->type);
+        des->name = symbol_table.get_operand(name).name;
+    }
+
+    ir::Instruction *inst = new ir::Instruction();
+    inst->op = isLoad ? Operator::load : Operator::store;
+    inst->op1 = arr;
+    inst->op2 = ind;
+    inst->des = *des;
+    if (!IS_SAME_TYPE(des->type, arr.type))
+    {
+        ir::Operand *t = new ir::Operand();
+        t->type = IS_INT_T(arr.type) ? Type::Int : Type::Float;
+        assign(buffer, *des, t);
+        inst->des = *t;
+    }
+    buffer.push_back(inst);
 }
 
 void Analyzer::assign(vector<ir::Instruction *> &buffer, const ir::Operand &t1, ir::Operand *des)
@@ -546,8 +574,10 @@ void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, const ir::Oper
     }
     else if (c == TokenType::NOT)
     {
-        assert(0 &&"not cannot float");
-    }else{
+        assert(0 && "not cannot float");
+    }
+    else
+    {
         assert(0 && "unknown type");
     }
 
@@ -722,12 +752,7 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
                 int size = values.size();
                 for (int i = 0; i < size; i++)
                 {
-                    ir::Instruction *storeInst = new ir::Instruction();
-                    storeInst->op = Operator::store;
-                    storeInst->des = this->symbol_table.get_operand(values[i]);
-                    storeInst->op1 = this->symbol_table.get_operand(root->arr_name);
-                    storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
-                    buffer.push_back(storeInst);
+                    processLS(buffer, symbol_table.get_operand(root->arr_name), ir::Operand(std::to_string(i), Type::IntLiteral), &this->symbol_table.get_operand(values[i]), false);
                 }
             }
         }
@@ -799,12 +824,7 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
                 int size = values.size();
                 for (int i = 0; i < size; i++)
                 {
-                    ir::Instruction *storeInst = new ir::Instruction();
-                    storeInst->op = Operator::store;
-                    storeInst->des = this->symbol_table.get_operand(values[i]);
-                    storeInst->op1 = this->symbol_table.get_operand(root->arr_name);
-                    storeInst->op2 = ir::Operand(std::to_string(i), Type::IntLiteral);
-                    buffer.push_back(storeInst);
+                    processLS(buffer, symbol_table.get_operand(root->arr_name), ir::Operand(std::to_string(i), Type::IntLiteral), &this->symbol_table.get_operand(values[i]), false);
                 }
             }
         }
@@ -972,12 +992,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
             int size = values.size();
             for (int i = 0; i < size; i++)
             {
-                ir::Instruction *storeInst = new ir::Instruction();
-                storeInst->op = Operator::store;
-                storeInst->des = this->symbol_table.get_operand(values[i]);
-                storeInst->op1 = this->symbol_table.get_operand(lvalNode->v);
-                storeInst->op2 = this->symbol_table.get_operand(lvalNode->i);
-                buffer.push_back(storeInst);
+                processLS(buffer, this->symbol_table.get_operand(lvalNode->v), this->symbol_table.get_operand(lvalNode->i), &this->symbol_table.get_operand(values[i]), false);
             }
             return;
         }
@@ -1059,21 +1074,8 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
             ANALYSIS(expNode, Exp, 1);
             ir::Operand *ret = new ir::Operand();
             ret->type = symbol_table.cur_return_type;
-            if (expNode->t != Type::IntPtr && expNode->t != Type::FloatPtr)
-            {
-                assign(buffer, symbol_table.get_operand(expNode->v), ret);
-                inst->op1 = *ret;
-            }
-            else
-            {
-                // ptr
-                ir::Instruction *inst = new ir::Instruction();
-                inst->op = Operator::load;
-                string desName = GET_RANDOM_NAM();
-                this->add_symbol(desName, nullptr, Type::Int);
-                inst->des = this->symbol_table.get_operand(desName);
-                inst->op1 = symbol_table.get_operand(expNode->v);
-            }
+            assign(buffer, symbol_table.get_operand(expNode->v), ret);
+            inst->op1 = *ret;
             buffer.push_back(inst);
         }
     }
@@ -1156,16 +1158,11 @@ void Analyzer::analysisPrimaryExp(PrimaryExp *root, vector<ir::Instruction *> &b
         COPY_EXP_NODE(node, root);
         if (node->i != "")
         {
-            ir::Instruction *loadInst = new ir::Instruction();
-            loadInst->op = Operator::load;
-            loadInst->op1 = symbol_table.get_operand(node->v);
-            loadInst->op2 = symbol_table.get_operand(node->i);
-            string desName = GET_RANDOM_NAM();
-            this->add_symbol(desName, nullptr, Type::Int);
-            loadInst->des = this->symbol_table.get_operand(desName);
-            buffer.push_back(loadInst);
-            root->v = desName;
-            root->t = node->t == Type::IntPtr ? Type::Int : Type::Float;
+            ir::Operand *des = new ir::Operand();
+            des->type = IS_INT_T(node->t) ? Type::Int : Type::Float;
+            processLS(buffer, symbol_table.get_operand(node->v), symbol_table.get_operand(node->i), des, true);
+            root->v = des->name;
+            root->t = des->type;
         }
         return;
     }

@@ -23,3 +23,7 @@ run_compiler(sys.argv[1])
 print("------------ score_compiler ------------")
 score = score_compiler(sys.argv[1])
 
+logfile = open("log.txt","w+")
+sys.stdout = logfile
+print(json.dumps({"score":str(score)}))
+logfile.close()

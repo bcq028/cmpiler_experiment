@@ -89,6 +89,8 @@ namespace frontend
             buffer.push_back(new ir::Instruction(ir::Operand(), ir::Operand(), ir::Operand(), ir::Operator::__unuse__));
         }
 
+        void processLS(vector<ir::Instruction *> &buffer,const ir::Operand &arr,const ir::Operand&ind,ir::Operand* des,bool isLoad);
+
         void assign(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,ir::Operand *des);
         ir::Operand convert(vector<ir::Instruction *> &buffer,bool int2float, const ir::Operand &op1);
         void processExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
@@ -129,5 +131,4 @@ namespace frontend
     };
 
 } // namespace frontend
-
 #endif
