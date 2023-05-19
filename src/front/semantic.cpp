@@ -289,14 +289,18 @@ bool is_logic_op(TokenType t)
     return t == TokenType::LSS || t == TokenType::LEQ || t == TokenType::GTR || t == TokenType::GEQ || t == TokenType::EQL || t == TokenType::NEQ;
 }
 
-ir::Operand fi2ii(const Operand& t){
-    assert(t.type==Type::FloatLiteral);
+ir::Operand fi2ii(const Operand &t)
+{
+    assert(t.type == Type::FloatLiteral);
     ir::Operand ret;
-    ret.type=Type::IntLiteral;
-    if(std::stof(t.name)==0){
-        ret.name="0";
-    }else{
-        ret.name="1";
+    ret.type = Type::IntLiteral;
+    if (std::stof(t.name) == 0)
+    {
+        ret.name = "0";
+    }
+    else
+    {
+        ret.name = "1";
     }
     return ret;
 }
@@ -319,13 +323,15 @@ void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &
 
     if (c == TokenType::AND || c == TokenType::OR || c == TokenType::NOT)
     {
-        ir::Operand nt1=t1;
-        ir::Operand nt2=t2;
-        if(t1.type==Type::FloatLiteral){
-            nt1=fi2ii(t1);
+        ir::Operand nt1 = t1;
+        ir::Operand nt2 = t2;
+        if (t1.type == Type::FloatLiteral)
+        {
+            nt1 = fi2ii(t1);
         }
-        if(t2.type==Type::FloatLiteral){
-            nt2=fi2ii(t2);
+        if (t2.type == Type::FloatLiteral)
+        {
+            nt2 = fi2ii(t2);
         }
         processIntExp(buffer, nt1, nt2, des, c);
         assert(des->type == Type::Int);
@@ -1026,24 +1032,31 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         ir::Instruction *jumpToFail = new ir::Instruction();
         int jumptoFail_pc = buffer.size();
         GOTO(buffer, 0, *notCond, jumpToFail);
+        for (int i = 0; i < this->or_insts.size(); ++i)
+        {
+            this->or_insts[i]->des.name = std::to_string((int)buffer.size() - this->or_inds[i]);
+        }
+
         ANALYSIS(stmt, Stmt, 4);
         ir::Instruction *jumpOut = new ir::Instruction();
         int jumpOut_pc = buffer.size();
         GOTO(buffer, 0, ir::Operand(), jumpOut);
-        if (root->children.size() > 5)
+        jumpToFail->des.name = std::to_string((int)buffer.size() - jumptoFail_pc);
+        for (int i = 0; i < this->and_insts.size(); ++i)
         {
-            jumpToFail->des.name = std::to_string((int)buffer.size() - jumptoFail_pc);
-            ANALYSIS(elseStmt, Stmt, 6);
-            jumpOut->des.name = std::to_string((int)buffer.size() - jumpOut_pc);
-            insertEmpt(buffer);
-        }
-        else
-        {
-            jumpToFail->des.name = std::to_string((int)buffer.size() - jumptoFail_pc);
-            jumpOut->des.name = std::to_string((int)buffer.size() - jumpOut_pc);
-            insertEmpt(buffer);
+            this->and_insts[i]->des.name = std::to_string((int)buffer.size() - this->and_inds[i]);
         }
 
+        if (root->children.size() > 5)
+        {
+            ANALYSIS(elseStmt, Stmt, 6);
+        }
+        jumpOut->des.name = std::to_string((int)buffer.size() - jumpOut_pc);
+        insertEmpt(buffer);
+        this->and_insts.clear();
+        this->and_inds.clear();
+        this->or_insts.clear();
+        this->or_inds.clear();
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
@@ -1057,6 +1070,10 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         ir::Instruction *breakwhile_inst = new ir::Instruction();
         int cur_pc = buffer.size();
         GOTO(buffer, 0, *notCond, breakwhile_inst);
+        for (int i = 0; i < this->or_insts.size(); ++i)
+        {
+            this->or_insts[i]->des.name = std::to_string((int)buffer.size() - this->or_inds[i]);
+        }
         ANALYSIS(stmt, Stmt, 4);
         // while end, continue
         GOTO(buffer, this->continue_pc, ir::Operand(), nullptr);
@@ -1066,9 +1083,17 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         {
             break_insts[i]->des.name = std::to_string((int)buffer.size() - 1 - this->break_pcs[i]);
         }
+        for (int i = 0; i < this->and_insts.size(); ++i)
+        {
+            this->and_insts[i]->des.name = std::to_string((int)buffer.size() - 1 - this->and_inds[i]);
+        }
         breakwhile_inst->des.name = std::to_string((int)buffer.size() - 1 - cur_pc);
         this->break_insts.clear();
         this->break_pcs.clear();
+        this->and_insts.clear();
+        this->and_inds.clear();
+        this->or_insts.clear();
+        this->or_inds.clear();
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)
@@ -1358,8 +1383,16 @@ void Analyzer::analysisLAndExp(LAndExp *root, vector<ir::Instruction *> &buffer)
     COPY_EXP_NODE(node, root);
     if (root->children.size() > 1)
     {
+        // support short_circuit
+        ir::Instruction *short_curcuit = new ir::Instruction();
+        this->and_insts.push_back(short_curcuit);
+        ir::Operand *notCond = new ir::Operand();
+        notCond->type = Type::Int;
+        processExp(buffer, symbol_table.get_operand(node->v), ir::Operand(), notCond, TokenType::NOT);
+        GOTO(buffer, 1, *notCond, short_curcuit);
+        this->and_inds.push_back((int)buffer.size() - 1);
         ANALYSIS(node2, LAndExp, 2);
-        Operand *des;
+        Operand *des = new ir::Operand();
         des->type = Type::Int;
         auto op = dynamic_cast<Term *>(root->children[1])->token.type;
         processExp(buffer, symbol_table.get_operand(root->v), symbol_table.get_operand(node2->v), des, op);
@@ -1373,6 +1406,11 @@ void Analyzer::analysisLOrExp(LOrExp *root, vector<ir::Instruction *> &buffer)
     COPY_EXP_NODE(node, root);
     if (root->children.size() > 1)
     {
+        // support short_circuit
+        ir::Instruction *short_curcuit = new ir::Instruction();
+        this->or_insts.push_back(short_curcuit);
+        GOTO(buffer, 1, symbol_table.get_operand(node->v), short_curcuit);
+        this->or_inds.push_back((int)buffer.size() - 1);
         ANALYSIS(node2, LOrExp, 2);
         Operand *des;
         des->type = Type::Int;

@@ -65,6 +65,10 @@ namespace frontend
         ir::Function* cur_func;
         int tmp_cnt;
         vector<ir::Instruction *> break_insts;
+        vector<ir::Instruction*>  and_insts;
+        vector<int> and_inds;
+        vector<ir::Instruction*>  or_insts;
+        vector<int> or_inds;
         vector<int> break_pcs;
         int continue_pc;
         int if_fail_pc;
