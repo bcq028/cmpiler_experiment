@@ -94,7 +94,7 @@ namespace frontend
         }
 
         void processLS(vector<ir::Instruction *> &buffer,const ir::Operand &arr,const ir::Operand&ind,ir::Operand* des,bool isLoad);
-
+        void fill(vector<ir::Instruction *> &buffer,const ir::Operand& arr,int start,int end);
         void assign(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,ir::Operand *des);
         ir::Operand convert(vector<ir::Instruction *> &buffer,bool int2float, const ir::Operand &op1);
         void processExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);

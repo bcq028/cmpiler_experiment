@@ -218,6 +218,14 @@ bool IS_SAME_TYPE(Type t1, Type t2)
 {
     return (IS_INT_T(t1) && IS_INT_T(t2)) || (IS_FLOAT_T(t1) && IS_FLOAT_T(t2));
 }
+void Analyzer::fill(vector<ir::Instruction *> &buffer, const ir::Operand &arr, int start, int end)
+{
+    for (int i = start; i < end; ++i)
+    {
+        ir::Operand *des = new ir::Operand("0", arr.type==Type::IntPtr?Type::IntLiteral:Type::FloatLiteral);
+        processLS(buffer, arr, Operand(std::to_string(i), Type::IntLiteral), des, false);
+    }
+}
 
 void Analyzer::processLS(vector<ir::Instruction *> &buffer, const ir::Operand &arr, const ir::Operand &ind, ir::Operand *des, bool isLoad)
 {
@@ -623,8 +631,9 @@ void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, const ir::Oper
 
 void Analyzer::GOTO(vector<ir::Instruction *> &buffer, int label, const ir::Operand &cond, ir::Instruction *inst)
 {
-    if(label==-1){
-        label=buffer.size()+1;
+    if (label == -1)
+    {
+        label = buffer.size() + 1;
     }
     if (inst == nullptr)
     {
@@ -650,6 +659,7 @@ void Analyzer::analysisCompUnit(CompUnit *root, ir::Program &program)
     {
         vector<ir::Instruction *> &buffer = this->g_init_inst;
         ANALYSIS(node, Decl, 0);
+        // todo:init array
     }
     if (root->children.size() > 1)
     {
@@ -750,6 +760,7 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
         }
         allocInst->op1 = Operand(std::to_string(op1), Type::IntLiteral);
         buffer.push_back(allocInst);
+        fill(buffer, symbol_table.get_operand(root->arr_name), 0, op1);
     }
 
     for (auto i = 1; i < root->children.size(); i += 3)
@@ -826,6 +837,7 @@ void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
         }
         allocInst->op1 = Operand(std::to_string(op1), Type::IntLiteral);
         buffer.push_back(allocInst);
+        fill(buffer, symbol_table.get_operand(root->arr_name), 0, op1);
     }
 
     for (auto i = 1; i < root->children.size(); i += 3)
@@ -1028,6 +1040,16 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::IFTK)
     {
+        vector<ir::Instruction *> and_insts = this->and_insts;
+        vector<int> and_inds = this->and_inds;
+        vector<ir::Instruction *> or_insts = this->or_insts;
+        vector<int> or_inds = this->or_inds;
+
+        this->and_insts.clear();
+        this->and_inds.clear();
+        this->or_insts.clear();
+        this->or_inds.clear();
+
         ANALYSIS(cond, Cond, 2);
         ir::Operand *notCond = new ir::Operand();
         notCond->type = Type::Int;
@@ -1060,15 +1082,26 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         }
         jumpOut->des.name = std::to_string((int)buffer.size() - jumpOut_pc);
         insertEmpt(buffer);
-        this->and_insts.clear();
-        this->and_inds.clear();
-        this->or_insts.clear();
-        this->or_inds.clear();
+
+        this->and_insts = and_insts;
+        this->and_inds = and_inds;
+        this->or_insts = or_insts;
+        this->or_inds = or_inds;
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::WHILETK)
     {
+        vector<ir::Instruction *> and_insts = this->and_insts;
+        vector<int> and_inds = this->and_inds;
+        vector<ir::Instruction *> or_insts = this->or_insts;
+        vector<int> or_inds = this->or_inds;
+
+        this->and_insts.clear();
+        this->and_inds.clear();
+        this->or_insts.clear();
+        this->or_inds.clear();
         int prevc_pc = this->continue_pc;
+
         this->continue_pc = buffer.size();
         ANALYSIS(cond, Cond, 2);
         ir::Operand *notCond = new ir::Operand();
@@ -1084,7 +1117,6 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         ANALYSIS(stmt, Stmt, 4);
         // while end, continue
         GOTO(buffer, this->continue_pc, ir::Operand(), nullptr);
-        this->continue_pc = prevc_pc;
         insertEmpt(buffer);
         for (int i = 0; i < this->break_insts.size(); ++i)
         {
@@ -1099,12 +1131,14 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
             }
         }
         breakwhile_inst->des.name = std::to_string((int)buffer.size() - 1 - cur_pc);
+
         this->break_insts.clear();
         this->break_pcs.clear();
-        this->and_insts.clear();
-        this->and_inds.clear();
-        this->or_insts.clear();
-        this->or_inds.clear();
+        this->and_insts = and_insts;
+        this->and_inds = and_inds;
+        this->or_insts = or_insts;
+        this->or_inds = or_inds;
+        this->continue_pc = prevc_pc;
         return;
     }
     if (dynamic_cast<Term *>(root->children[0]) && dynamic_cast<Term *>(root->children[0])->token.type == TokenType::CONTINUETK)

@@ -81,7 +81,6 @@ ir::Value ir::Executor::find_src_operand(Operand op)
         break;
     default:
         std::cout << retval._val.iptr << std::endl;
-        std::cout << retval._val.iptr[0] << std::endl;
         break;
     }
 #endif
