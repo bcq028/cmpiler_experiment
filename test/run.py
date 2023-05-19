@@ -14,6 +14,8 @@ def run_compiler(arg1):
     elif step == "-s2":
         step = "-e"
         oftype = "out"
+    elif step == "-S":
+        oftype = "s"
     else:
         print("illegal input")
         exit()
@@ -39,7 +41,6 @@ def run_compiler(arg1):
             files = os.listdir(testcase_dir)
             src_files = [f for f in files if f[-3:] == ".sy" ]
             for src in src_files:
-                print(src)
                 fname, ftype = src.split('.')
                 cmd = ' '.join([compiler_path, testcase_dir + src, step, "-o", output_dir + fname + "." + oftype])
                 if is_windows:
@@ -49,7 +50,7 @@ def run_compiler(arg1):
                     record[src] = {"retval": cp.returncode, "err_detail": cp.stderr}
                 else:
                     record[src] = {"retval": 0}
-                print(record[src])
+                print(src, record[src])
         else:
             print("dir", testcase_dir, "not exist")
 
