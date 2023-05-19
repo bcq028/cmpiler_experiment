@@ -107,7 +107,7 @@ string frontend::SymbolTable::get_scoped_name(string id) const
         auto &table = this->scope_stack[i].table;
         for (auto &&iter : table)
         {
-            if (iter.second.operand.name.substr(0, id.size()) == id)
+            if (iter.second.operand.name.substr(0, id.size()) == id && (iter.second.operand.name.size()==id.size() || iter.second.operand.name[id.size()]=='_'))
             {
                 return iter.second.operand.name;
             }
@@ -222,7 +222,7 @@ void Analyzer::fill(vector<ir::Instruction *> &buffer, const ir::Operand &arr, i
 {
     for (int i = start; i < end; ++i)
     {
-        ir::Operand *des = new ir::Operand("0", arr.type==Type::IntPtr?Type::IntLiteral:Type::FloatLiteral);
+        ir::Operand *des = new ir::Operand("0", arr.type == Type::IntPtr ? Type::IntLiteral : Type::FloatLiteral);
         processLS(buffer, arr, Operand(std::to_string(i), Type::IntLiteral), des, false);
     }
 }
@@ -723,7 +723,7 @@ void Analyzer::analysisBType(BType *root, vector<ir::Instruction *> &buffer)
 }
 void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffer)
 {
-    root->arr_name = dynamic_cast<Term *>(root->children[0])->token.value + "_" + std::to_string(this->symbol_table.scope_stack.size());
+    root->arr_name = rename(dynamic_cast<Term *>(root->children[0])->token.value);
     vector<int> *dimensions = new vector<int>();
     for (auto i = 1; i < root->children.size(); i += 3)
     {
@@ -801,7 +801,7 @@ void Analyzer::analysisConstDef(ConstDef *root, vector<ir::Instruction *> &buffe
 }
 void Analyzer::analysisVarDef(VarDef *root, vector<ir::Instruction *> &buffer)
 {
-    root->arr_name = dynamic_cast<Term *>(root->children[0])->token.value + "_" + std::to_string(this->symbol_table.scope_stack.size());
+    root->arr_name = rename(dynamic_cast<Term *>(root->children[0])->token.value);
     vector<int> *dimensions = new vector<int>();
     for (auto i = 1; i < root->children.size(); i += 3)
     {

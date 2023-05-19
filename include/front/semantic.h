@@ -62,12 +62,12 @@ namespace frontend
     // singleton class
     struct Analyzer
     {
-        ir::Function* cur_func;
+        ir::Function *cur_func;
         int tmp_cnt;
         vector<ir::Instruction *> break_insts;
-        vector<ir::Instruction*>  and_insts;
+        vector<ir::Instruction *> and_insts;
         vector<int> and_inds;
-        vector<ir::Instruction*>  or_insts;
+        vector<ir::Instruction *> or_insts;
         vector<int> or_inds;
         vector<int> break_pcs;
         int continue_pc;
@@ -92,14 +92,18 @@ namespace frontend
         {
             buffer.push_back(new ir::Instruction(ir::Operand(), ir::Operand(), ir::Operand(), ir::Operator::__unuse__));
         }
+        string rename(string o)
+        {
+            return o + "_" + std::to_string(this->symbol_table.scope_stack.size());
+        }
 
-        void processLS(vector<ir::Instruction *> &buffer,const ir::Operand &arr,const ir::Operand&ind,ir::Operand* des,bool isLoad);
-        void fill(vector<ir::Instruction *> &buffer,const ir::Operand& arr,int start,int end);
-        void assign(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,ir::Operand *des);
-        ir::Operand convert(vector<ir::Instruction *> &buffer,bool int2float, const ir::Operand &op1);
-        void processExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
-        void processIntExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
-        void processFloatExp(vector<ir::Instruction *> &buffer,  const ir::Operand &t1,  const ir::Operand &t2, ir::Operand *des, TokenType c);
+        void processLS(vector<ir::Instruction *> &buffer, const ir::Operand &arr, const ir::Operand &ind, ir::Operand *des, bool isLoad);
+        void fill(vector<ir::Instruction *> &buffer, const ir::Operand &arr, int start, int end);
+        void assign(vector<ir::Instruction *> &buffer, const ir::Operand &t1, ir::Operand *des);
+        ir::Operand convert(vector<ir::Instruction *> &buffer, bool int2float, const ir::Operand &op1);
+        void processExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, TokenType c);
+        void processIntExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, TokenType c);
+        void processFloatExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, TokenType c);
         void GOTO(vector<ir::Instruction *> &buffer, int label, const ir::Operand &cond, ir::Instruction *inst);
         void add_symbol(string id, vector<int> *dimension, Type);
         void analysisCompUnit(CompUnit *, ir::Program &);
