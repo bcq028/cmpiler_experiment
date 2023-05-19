@@ -289,6 +289,18 @@ bool is_logic_op(TokenType t)
     return t == TokenType::LSS || t == TokenType::LEQ || t == TokenType::GTR || t == TokenType::GEQ || t == TokenType::EQL || t == TokenType::NEQ;
 }
 
+ir::Operand fi2ii(const Operand& t){
+    assert(t.type==Type::FloatLiteral);
+    ir::Operand ret;
+    ret.type=Type::IntLiteral;
+    if(std::stof(t.name)==0){
+        ret.name="0";
+    }else{
+        ret.name="1";
+    }
+    return ret;
+}
+
 void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &t1, const ir::Operand &t2, ir::Operand *des, TokenType c)
 {
 
@@ -307,7 +319,15 @@ void Analyzer::processExp(vector<ir::Instruction *> &buffer, const ir::Operand &
 
     if (c == TokenType::AND || c == TokenType::OR || c == TokenType::NOT)
     {
-        processIntExp(buffer, t1, t2, des, c);
+        ir::Operand nt1=t1;
+        ir::Operand nt2=t2;
+        if(t1.type==Type::FloatLiteral){
+            nt1=fi2ii(t1);
+        }
+        if(t2.type==Type::FloatLiteral){
+            nt2=fi2ii(t2);
+        }
+        processIntExp(buffer, nt1, nt2, des, c);
         assert(des->type == Type::Int);
         return;
     }
