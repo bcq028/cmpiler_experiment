@@ -623,6 +623,9 @@ void Analyzer::processFloatExp(vector<ir::Instruction *> &buffer, const ir::Oper
 
 void Analyzer::GOTO(vector<ir::Instruction *> &buffer, int label, const ir::Operand &cond, ir::Instruction *inst)
 {
+    if(label==-1){
+        label=buffer.size()+1;
+    }
     if (inst == nullptr)
     {
         inst = new ir::Instruction();
@@ -1031,7 +1034,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         processExp(buffer, symbol_table.get_operand(cond->v), ir::Operand(), notCond, TokenType::NOT);
         ir::Instruction *jumpToFail = new ir::Instruction();
         int jumptoFail_pc = buffer.size();
-        GOTO(buffer, 0, *notCond, jumpToFail);
+        GOTO(buffer, -1, *notCond, jumpToFail);
         for (int i = 0; i < this->or_insts.size(); ++i)
         {
             this->or_insts[i]->des.name = std::to_string((int)buffer.size() - this->or_inds[i]);
@@ -1040,11 +1043,15 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         ANALYSIS(stmt, Stmt, 4);
         ir::Instruction *jumpOut = new ir::Instruction();
         int jumpOut_pc = buffer.size();
-        GOTO(buffer, 0, ir::Operand(), jumpOut);
+        GOTO(buffer, -1, ir::Operand(), jumpOut);
         jumpToFail->des.name = std::to_string((int)buffer.size() - jumptoFail_pc);
-        for (int i = 0; i < this->and_insts.size(); ++i)
+
+        if (this->or_insts.size() == 0)
         {
-            this->and_insts[i]->des.name = std::to_string((int)buffer.size() - this->and_inds[i]);
+            for (int i = 0; i < this->and_insts.size(); ++i)
+            {
+                this->and_insts[i]->des.name = std::to_string((int)buffer.size() - this->and_inds[i]);
+            }
         }
 
         if (root->children.size() > 5)
@@ -1069,7 +1076,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         processExp(buffer, symbol_table.get_operand(cond->v), ir::Operand(), notCond, TokenType::NOT);
         ir::Instruction *breakwhile_inst = new ir::Instruction();
         int cur_pc = buffer.size();
-        GOTO(buffer, 0, *notCond, breakwhile_inst);
+        GOTO(buffer, -1, *notCond, breakwhile_inst);
         for (int i = 0; i < this->or_insts.size(); ++i)
         {
             this->or_insts[i]->des.name = std::to_string((int)buffer.size() - this->or_inds[i]);
@@ -1083,9 +1090,13 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
         {
             break_insts[i]->des.name = std::to_string((int)buffer.size() - 1 - this->break_pcs[i]);
         }
-        for (int i = 0; i < this->and_insts.size(); ++i)
+
+        if (this->or_insts.size() == 0)
         {
-            this->and_insts[i]->des.name = std::to_string((int)buffer.size() - 1 - this->and_inds[i]);
+            for (int i = 0; i < this->and_insts.size(); ++i)
+            {
+                this->and_insts[i]->des.name = std::to_string((int)buffer.size() - 1 - this->and_inds[i]);
+            }
         }
         breakwhile_inst->des.name = std::to_string((int)buffer.size() - 1 - cur_pc);
         this->break_insts.clear();
@@ -1105,7 +1116,7 @@ void Analyzer::analysisStmt(Stmt *root, vector<ir::Instruction *> &buffer)
     {
         auto break_inst = new ir::Instruction();
         this->break_insts.push_back(break_inst);
-        GOTO(buffer, 0, ir::Operand(), break_inst);
+        GOTO(buffer, -1, ir::Operand(), break_inst);
         this->break_pcs.push_back(buffer.size() - 1);
         return;
     }
@@ -1389,7 +1400,7 @@ void Analyzer::analysisLAndExp(LAndExp *root, vector<ir::Instruction *> &buffer)
         ir::Operand *notCond = new ir::Operand();
         notCond->type = Type::Int;
         processExp(buffer, symbol_table.get_operand(node->v), ir::Operand(), notCond, TokenType::NOT);
-        GOTO(buffer, 1, *notCond, short_curcuit);
+        GOTO(buffer, -1, *notCond, short_curcuit);
         this->and_inds.push_back((int)buffer.size() - 1);
         ANALYSIS(node2, LAndExp, 2);
         Operand *des = new ir::Operand();
@@ -1409,7 +1420,7 @@ void Analyzer::analysisLOrExp(LOrExp *root, vector<ir::Instruction *> &buffer)
         // support short_circuit
         ir::Instruction *short_curcuit = new ir::Instruction();
         this->or_insts.push_back(short_curcuit);
-        GOTO(buffer, 1, symbol_table.get_operand(node->v), short_curcuit);
+        GOTO(buffer, -1, symbol_table.get_operand(node->v), short_curcuit);
         this->or_inds.push_back((int)buffer.size() - 1);
         ANALYSIS(node2, LOrExp, 2);
         Operand *des;
