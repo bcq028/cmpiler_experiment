@@ -10,7 +10,7 @@
         "${workspaceFolder}/aaa.sy",
         "-S",
         "-o",
-        "./aaa.txt"
+        "test/aaa.S"
       ],
       "cwd": "${workspaceFolder}",
       "MIMode": "gdb",

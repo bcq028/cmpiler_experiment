@@ -90,8 +90,16 @@ backend::Generator::Generator(ir::Program &p, std::ofstream &f) : program(p), fo
 
 void backend::Generator::gen()
 {
+    std::string header= ".file    \"00_main.c\"   \n\
+    .option nopic   \n\
+    .text     \n\
+    .align    1  \n\
+    .globl    main  \n\
+    .type    main, @function\n";  
+    this->fout<<header;
     for (auto func : this->program.functions)
     {
+        this->fout<< func.name<<":\n";
         this->callee(func);
     }
 }
@@ -114,7 +122,7 @@ void backend::Generator::callee(ir::Function &f)
     this->fout << "addi sp,sp," << -size << '\n';
     this->fout << "sw ra,12(sp)" << '\n';
     this->fout << "sw s0,8(sp)" << '\n';
-    this->fout << "addi s0,sp" << size << '\n';
+    this->fout << "addi s0,sp," << size << '\n';
     for (auto inst : f.InstVec)
     {
         this->gen_instr(*inst);
@@ -129,7 +137,7 @@ std::string rv::rv_inst::draw() const
     switch (this->op)
     {
     case rv::rvOPCODE::LI:
-        return "li " + toString(this->rd) + std::to_string(this->imm) + '\n';
+        return "li " + toString(this->rd)+',' + std::to_string(this->imm) + '\n';
     case rv::rvOPCODE::RET:
         return "ret\n";
     default:
@@ -148,7 +156,7 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
         if (inst.op1.name != "null")
         {
             this->fout << ld_op1.draw();
-            fout << "addi, a0," << toString(ld_op1.rd) << ",0" << '\n';
+            fout << "addi a0," << toString(ld_op1.rd) << ",0" << '\n';
         }
         ir_inst.op = rvOPCODE::RET;
         break;

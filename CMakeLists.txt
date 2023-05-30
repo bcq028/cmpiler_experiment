@@ -1,9 +1,11 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.10)
 project(compiler)
 
 # compile flags
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall")          # 开启所有警告
+set(CMAKE_C_COMPILER    "/usr/bin/x86_64-linux-gnu-gcc-7")
+set(CMAKE_CXX_COMPILER  "/usr/bin/x86_64-linux-gnu-g++-7")
 # debug flags
 # add_definitions(-DDEBUG_DFA)
 # add_definitions(-DDEBUG_SCANNER)
