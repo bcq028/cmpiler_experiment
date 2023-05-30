@@ -28,14 +28,14 @@ struct stackVarMap {
      * @param[in] size: the space needed(in byte)
      * @return the offset
     */
-    int add_operand(ir::Operand, uint32_t size = 4);
+    int add_operand(ir::Operand, uint32_t size);
 };
 
 
 struct Generator {
     const ir::Program& program;         // the program to gen
     std::ofstream& fout;                 // output file
-
+    stackVarMap stackMap;
     Generator(ir::Program&, std::ofstream&);
 
     void callee(ir::Function& f);

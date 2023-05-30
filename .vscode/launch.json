@@ -8,7 +8,7 @@
       "program": "${workspaceFolder}/bin/compiler",
       "args": [
         "${workspaceFolder}/aaa.sy",
-        "-e",
+        "-S",
         "-o",
         "./aaa.txt"
       ],
