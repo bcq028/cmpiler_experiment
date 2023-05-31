@@ -90,16 +90,16 @@ backend::Generator::Generator(ir::Program &p, std::ofstream &f) : program(p), fo
 
 void backend::Generator::gen()
 {
-    std::string header= ".file    \"00_main.c\"   \n\
+    std::string header = ".file    \"00_main.c\"   \n\
     .option nopic   \n\
     .text     \n\
     .align    1  \n\
     .globl    main  \n\
-    .type    main, @function\n";  
-    this->fout<<header;
+    .type    main, @function\n";
+    this->fout << header;
     for (auto func : this->program.functions)
     {
-        this->fout<< func.name<<":\n";
+        this->fout << func.name << ":\n";
         this->callee(func);
     }
 }
@@ -107,12 +107,15 @@ void backend::Generator::gen()
 int backend::stackVarMap::add_operand(ir::Operand oper, uint32_t size = 4)
 {
     this->offset_table[oper.name] = this->cur_offset;
-    this->cur_offset += size;
+    this->cur_offset -= size;
     return this->offset_table[oper.name];
 }
 
 int backend::stackVarMap::find_operand(ir::Operand oper)
 {
+    if(!this->offset_table.count(oper.name)){
+        this->add_operand(oper);
+    }
     return this->offset_table[oper.name];
 }
 
@@ -137,7 +140,7 @@ std::string rv::rv_inst::draw() const
     switch (this->op)
     {
     case rv::rvOPCODE::LI:
-        return "li " + toString(this->rd)+',' + std::to_string(this->imm) + '\n';
+        return "li " + toString(this->rd) + ',' + std::to_string(this->imm) + '\n';
     case rv::rvOPCODE::RET:
         return "ret\n";
     default:
@@ -159,10 +162,14 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
             fout << "addi a0," << toString(ld_op1.rd) << ",0" << '\n';
         }
         ir_inst.op = rvOPCODE::RET;
+        this->fout << ir_inst.draw();
         break;
-
+    case ir::Operator::mov:
+    case ir::Operator::def:
+        this->fout << ld_op1.draw();
+        this->fout<< "sw "<<toString(ld_op1.rd)<<", "<<this->stackMap.find_operand(inst.op1)<<"(s0)\n";
+        break;
     default:
         break;
     }
-    this->fout << ir_inst.draw();
 }

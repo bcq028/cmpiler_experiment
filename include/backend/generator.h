@@ -14,7 +14,7 @@ namespace backend {
 
 // it is a map bewteen variable and its mem addr, the mem addr of a local variable can be identified by ($sp + off)
 struct stackVarMap {
-    int cur_offset=0;
+    int cur_offset=-12; // 4 for ra,4 for s0, reserve 4 start from -12
     std::map<std::string, int> offset_table;
 
     /**
