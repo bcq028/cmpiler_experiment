@@ -74,7 +74,7 @@ rv::rvFREG backend::Generator::fgetRs2(ir::Operand = ir::Operand())
 }
 
 // load oper to register
-rv::rv_inst get_ld_inst(const ir::Operand &oper,rv::rvREG reg)
+rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper,rv::rvREG reg)
 {
     rv::rv_inst inst;
     if (oper.type == ir::Type::IntLiteral)
@@ -82,6 +82,11 @@ rv::rv_inst get_ld_inst(const ir::Operand &oper,rv::rvREG reg)
         inst.op = rv::rvOPCODE::LI;
         inst.rd = reg;
         inst.imm = stoi(oper.name);
+    }else if(oper.type==ir::Type::Int){
+        inst.op=rv::rvOPCODE::LW;
+        inst.rd=reg;
+        inst.rs1=rv::rvREG::s0;
+        inst.imm=this->stackMap.find_operand(oper.name);
     }
     return inst;
 }
@@ -90,7 +95,8 @@ backend::Generator::Generator(ir::Program &p, std::ofstream &f) : program(p), fo
 
 void backend::Generator::gen()
 {
-    std::string header = ".file    \"00_main.c\"   \n\
+    std::string file_name="\"main.c\"";
+    std::string header = ".file    " + file_name + "\n\
     .option nopic   \n\
     .text     \n\
     .align    1  \n\
@@ -155,6 +161,10 @@ void backend::Generator::callee(ir::Function &f)
     for (auto inst : f.InstVec)
     {
         ir::Instruction ins=*inst;
+        #ifdef DEBUG_BE
+        std:: string t1=ins.draw();
+        std::cout<<t1<<'\n';
+        #endif
         this->gen_instr(ins);
     }
     this->fout << "lw ra,12(sp)" << '\n';
@@ -170,6 +180,8 @@ std::string rv::rv_inst::draw() const
         return "li " + toString(this->rd) + ',' + std::to_string(this->imm) + '\n';
     case rv::rvOPCODE::RET:
         return "ret\n";
+    case rv::rvOPCODE::LW:
+        return "lw  "+toString(this->rd)+","+std::to_string((int) this->imm)+"("+toString(this->rs1)+")"+'\n';
     default:
         return "";
     }
@@ -204,12 +216,12 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
     case ir::Operator::add:
             this->fout << ld_op1.draw();
             this->fout << ld_op2.draw();
-            this->fout<< "add "<<toString(this->getRd(inst.des))<<", "<<toString(ld_op1.rd)<<toString(ld_op2.rd)<<'\n';
+            this->fout<< "add "<<toString(this->getRd(inst.des))<<", "<<toString(ld_op1.rd)<<", "<<toString(ld_op2.rd)<<'\n';
             break;
     case ir::Operator::call:
-            if(inst.des.name=="global") break;
+            if(inst.op1.name=="global") break;
             //todo: finish call func
-            this->caller(inst.des.name);
+            this->caller(inst.op1.name);
             break;
     default:
         break;

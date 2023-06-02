@@ -5,3 +5,9 @@ riscv32-unknown-linux-gnu-gcc ./aaa.S sylib-riscv-linux.a -o aaa.out
 if [ "$1" = "run" ]; then
   qemu-riscv32.sh ./aaa.out
 fi
+
+if [ "$1" = "sc" ]; then
+  python3 ./run.py
+  python3 ./score.py
+fi
+

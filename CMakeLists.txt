@@ -10,7 +10,7 @@ set(CMAKE_CXX_COMPILER  "/usr/bin/x86_64-linux-gnu-g++-7")
 # add_definitions(-DDEBUG_DFA)
 # add_definitions(-DDEBUG_SCANNER)
 # add_definitions(-DDEBUG_PARSER)
-
+add_definitions(-DDEBUG_BE)
 # output settings
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
