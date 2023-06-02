@@ -1,7 +1,7 @@
 #include "backend/generator.h"
 
 #include <assert.h>
-
+#include <iostream>
 #define TODO assert(0 && "todo");
 using namespace rv;
 
@@ -48,39 +48,39 @@ namespace rv
 
 }
 
-rv::rvREG getRd(ir::Operand = ir::Operand())
+rv::rvREG backend::Generator::getRd(ir::Operand = ir::Operand())
 {
     return rvREG::t0;
 }
-rv::rvFREG fgetRd(ir::Operand = ir::Operand())
+rv::rvFREG backend::Generator::fgetRd(ir::Operand = ir::Operand())
 {
     return rvFREG::ft0;
 }
-rv::rvREG getRs1(ir::Operand = ir::Operand())
+rv::rvREG backend::Generator::getRs1(ir::Operand = ir::Operand())
 {
     return rvREG::t1;
 }
-rv::rvREG getRs2(ir::Operand = ir::Operand())
+rv::rvREG backend::Generator::getRs2(ir::Operand = ir::Operand())
 {
     return rvREG::t2;
 }
-rv::rvFREG fgetRs1(ir::Operand = ir::Operand())
+rv::rvFREG backend::Generator::fgetRs1(ir::Operand = ir::Operand())
 {
     return rvFREG::ft1;
 }
-rv::rvFREG fgetRs2(ir::Operand = ir::Operand())
+rv::rvFREG backend::Generator::fgetRs2(ir::Operand = ir::Operand())
 {
     return rvFREG::ft2;
 }
 
 // load oper to register
-rv::rv_inst get_ld_inst(const ir::Operand &oper)
+rv::rv_inst get_ld_inst(const ir::Operand &oper,rv::rvREG reg)
 {
     rv::rv_inst inst;
     if (oper.type == ir::Type::IntLiteral)
     {
         inst.op = rv::rvOPCODE::LI;
-        inst.rd = getRd();
+        inst.rd = reg;
         inst.imm = stoi(oper.name);
     }
     return inst;
@@ -99,8 +99,33 @@ void backend::Generator::gen()
     this->fout << header;
     for (auto func : this->program.functions)
     {
+        if (func.name == "global")
+            continue;
         this->fout << func.name << ":\n";
         this->callee(func);
+    }
+    // gloval V
+    for (auto glovalV : this->program.globalVal)
+    {
+        this->fout << glovalV.val.name << ":\n";
+
+        for (auto func : this->program.functions)
+        {
+            if (func.name == "global")
+            {
+                for (auto inst : func.InstVec)
+                {
+                    if (inst->des.name == glovalV.val.name)
+                    {
+                        if (inst->op1.type == ir::Type::IntLiteral)
+                        {
+                            this->fout << "   .word   " << inst->op1.name << '\n';
+                        }
+                    }
+                }
+                break;
+            }
+        }
     }
 }
 
@@ -113,7 +138,8 @@ int backend::stackVarMap::add_operand(ir::Operand oper, uint32_t size = 4)
 
 int backend::stackVarMap::find_operand(ir::Operand oper)
 {
-    if(!this->offset_table.count(oper.name)){
+    if (!this->offset_table.count(oper.name))
+    {
         this->add_operand(oper);
     }
     return this->offset_table[oper.name];
@@ -128,7 +154,8 @@ void backend::Generator::callee(ir::Function &f)
     this->fout << "addi s0,sp," << size << '\n';
     for (auto inst : f.InstVec)
     {
-        this->gen_instr(*inst);
+        ir::Instruction ins=*inst;
+        this->gen_instr(ins);
     }
     this->fout << "lw ra,12(sp)" << '\n';
     this->fout << "lw s0,8(sp)" << '\n';
@@ -148,10 +175,15 @@ std::string rv::rv_inst::draw() const
     }
 }
 
+void backend::Generator::caller(std::string s){
+    std::cout<<"debug::"<<s<<std::endl;
+    assert(0 && "todo");
+}
+
 void backend::Generator::gen_instr(const ir::Instruction &inst)
 {
-    auto ld_op1 = get_ld_inst(inst.op1);
-    auto ld_op2 = get_ld_inst(inst.op2);
+    auto ld_op1 = get_ld_inst(inst.op1,rvREG::t1);
+    auto ld_op2 = get_ld_inst(inst.op2,rvREG::t2);
     rv::rv_inst ir_inst;
     switch (inst.op)
     {
@@ -167,8 +199,18 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
     case ir::Operator::mov:
     case ir::Operator::def:
         this->fout << ld_op1.draw();
-        this->fout<< "sw "<<toString(ld_op1.rd)<<", "<<this->stackMap.find_operand(inst.op1)<<"(s0)\n";
+        this->fout << "sw " << toString(ld_op1.rd) << ", " << this->stackMap.find_operand(inst.op1) << "(s0)\n";
         break;
+    case ir::Operator::add:
+            this->fout << ld_op1.draw();
+            this->fout << ld_op2.draw();
+            this->fout<< "add "<<toString(this->getRd(inst.des))<<", "<<toString(ld_op1.rd)<<toString(ld_op2.rd)<<'\n';
+            break;
+    case ir::Operator::call:
+            if(inst.des.name=="global") break;
+            //todo: finish call func
+            this->caller(inst.des.name);
+            break;
     default:
         break;
     }
