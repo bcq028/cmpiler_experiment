@@ -5,6 +5,11 @@
 #define TODO assert(0 && "todo");
 using namespace rv;
 
+bool isLiteral(ir::Type t)
+{
+    return t == ir::Type::IntLiteral || t == ir::Type::FloatLiteral;
+}
+
 namespace rv
 {
     std::string toString(rvREG r)
@@ -74,7 +79,7 @@ rv::rvFREG backend::Generator::fgetRs2(ir::Operand = ir::Operand())
 }
 
 // load oper to register
-rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper,rv::rvREG reg)
+rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper, rv::rvREG reg)
 {
     rv::rv_inst inst;
     if (oper.type == ir::Type::IntLiteral)
@@ -82,11 +87,13 @@ rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper,rv::rvREG re
         inst.op = rv::rvOPCODE::LI;
         inst.rd = reg;
         inst.imm = stoi(oper.name);
-    }else if(oper.type==ir::Type::Int){
-        inst.op=rv::rvOPCODE::LW;
-        inst.rd=reg;
-        inst.rs1=rv::rvREG::s0;
-        inst.imm=this->stackMap.find_operand(oper.name);
+    }
+    else if (oper.type == ir::Type::Int)
+    {
+        inst.op = rv::rvOPCODE::LW;
+        inst.rd = reg;
+        inst.rs1 = rv::rvREG::s0;
+        inst.imm = this->stackMap.find_operand(oper.name);
     }
     return inst;
 }
@@ -95,7 +102,7 @@ backend::Generator::Generator(ir::Program &p, std::ofstream &f) : program(p), fo
 
 void backend::Generator::gen()
 {
-    std::string file_name="\"main.c\"";
+    std::string file_name = "\"main.c\"";
     std::string header = ".file    " + file_name + "\n\
     .option nopic   \n\
     .text     \n\
@@ -160,11 +167,11 @@ void backend::Generator::callee(ir::Function &f)
     this->fout << "addi s0,sp," << size << '\n';
     for (auto inst : f.InstVec)
     {
-        ir::Instruction ins=*inst;
-        #ifdef DEBUG_BE
-        std:: string t1=ins.draw();
-        std::cout<<t1<<'\n';
-        #endif
+        ir::Instruction ins = *inst;
+#ifdef DEBUG_BE
+        std::string t1 = ins.draw();
+        std::cout << t1 << '\n';
+#endif
         this->gen_instr(ins);
     }
     this->fout << "lw ra,12(sp)" << '\n';
@@ -181,21 +188,22 @@ std::string rv::rv_inst::draw() const
     case rv::rvOPCODE::RET:
         return "ret\n";
     case rv::rvOPCODE::LW:
-        return "lw  "+toString(this->rd)+","+std::to_string((int) this->imm)+"("+toString(this->rs1)+")"+'\n';
+        return "lw  " + toString(this->rd) + "," + std::to_string((int)this->imm) + "(" + toString(this->rs1) + ")" + '\n';
     default:
         return "";
     }
 }
 
-void backend::Generator::caller(std::string s){
-    std::cout<<"debug::"<<s<<std::endl;
+void backend::Generator::caller(std::string s)
+{
+    std::cout << "debug::" << s << std::endl;
     assert(0 && "todo");
 }
 
 void backend::Generator::gen_instr(const ir::Instruction &inst)
 {
-    auto ld_op1 = get_ld_inst(inst.op1,rvREG::t1);
-    auto ld_op2 = get_ld_inst(inst.op2,rvREG::t2);
+    auto ld_op1 = get_ld_inst(inst.op1, rvREG::t1);
+    auto ld_op2 = get_ld_inst(inst.op2, rvREG::t2);
     rv::rv_inst ir_inst;
     switch (inst.op)
     {
@@ -211,18 +219,20 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
     case ir::Operator::mov:
     case ir::Operator::def:
         this->fout << ld_op1.draw();
-        this->fout << "sw " << toString(ld_op1.rd) << ", " << this->stackMap.find_operand(inst.op1) << "(s0)\n";
+        // 从寄存器保存到栈空间
+        this->fout << "sw " << toString(ld_op1.rd) << ", " << this->stackMap.find_operand(inst.des) << "(s0)\n";
         break;
     case ir::Operator::add:
-            this->fout << ld_op1.draw();
-            this->fout << ld_op2.draw();
-            this->fout<< "add "<<toString(this->getRd(inst.des))<<", "<<toString(ld_op1.rd)<<", "<<toString(ld_op2.rd)<<'\n';
-            break;
+        this->fout << ld_op1.draw();
+        this->fout << ld_op2.draw();
+        this->fout << "add " << toString(this->getRd(inst.des)) << ", " << toString(ld_op1.rd) << ", " << toString(ld_op2.rd) << '\n';
+        break;
     case ir::Operator::call:
-            if(inst.op1.name=="global") break;
-            //todo: finish call func
-            this->caller(inst.op1.name);
+        if (inst.op1.name == "global")
             break;
+        // todo: finish call func
+        this->caller(inst.op1.name);
+        break;
     default:
         break;
     }
