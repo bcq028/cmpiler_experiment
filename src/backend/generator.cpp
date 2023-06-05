@@ -10,6 +10,13 @@ bool isLiteral(ir::Type t)
     return t == ir::Type::IntLiteral || t == ir::Type::FloatLiteral;
 }
 
+void backend::Generator::loadG(std::string label, int offset, rv::rvREG t)
+{
+    this->fout << "lui    t0,\%hi(" << label << ")\n";
+    this->fout << "addi    t0,t0,\%lo(" << label << ")\n";
+    this->fout << "lw    t0," << offset * 4 << "(t0)\n";
+}
+
 namespace rv
 {
     std::string toString(rvREG r)
@@ -79,7 +86,7 @@ rv::rvFREG backend::Generator::fgetRs2(ir::Operand = ir::Operand())
 }
 
 // load oper to register
-rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper, rv::rvREG reg)
+rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper, rv::rvREG reg, int ind = 0)
 {
     rv::rv_inst inst;
     if (oper.type == ir::Type::IntLiteral)
@@ -100,10 +107,10 @@ rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper, rv::rvREG r
             inst.op = rv::rvOPCODE::LI;
             inst.rd = reg;
             assert(globalVM.count(oper.name) && "check globalVM");
-            inst.imm = stoi(this->globalVM[oper.name]);
+            inst.imm = stoi(this->globalVM[oper.name][ind]);
         }
     }
-    this->fout<<inst.draw();
+    this->fout << inst.draw();
     return inst;
 }
 
@@ -131,14 +138,36 @@ void backend::Generator::gen()
             {
                 for (auto inst : func.InstVec)
                 {
-                    if (inst->des.name == glovalV.val.name)
+                    if (inst->op == ir::Operator::alloc)
                     {
-                        if (inst->op1.type == ir::Type::IntLiteral)
+                        assert(inst->op1.type == ir::Type::IntLiteral && "todo:alloc var");
+                        this->globalVM[inst->des.name].resize(stoi(inst->op1.name));
+                    }
+                    if (inst->op == ir::Operator::mov)
+                    {
+                        if (inst->des.name == glovalV.val.name)
                         {
-                            this->fout << "   .word   " << inst->op1.name << '\n';
-                            this->globalVM[glovalV.val.name] = inst->op1.name;
+                            this->globalVM[glovalV.val.name].resize(1);
+                            if (inst->op1.type == ir::Type::IntLiteral)
+                            {
+                                this->globalVM[glovalV.val.name][0] = inst->op1.name;
+                            }
                         }
                     }
+                    else if (inst->op == ir::Operator::store)
+                    {
+                        if (inst->op1.name == glovalV.val.name)
+                        {
+                            if (inst->op2.type == ir::Type::IntLiteral)
+                            {
+                                this->globalVM[glovalV.val.name][stoi(inst->op2.name)] = inst->des.name;
+                            }
+                        }
+                    }
+                }
+                for (auto i : this->globalVM[glovalV.val.name])
+                {
+                    this->fout << "   .word   " << i << '\n';
                 }
                 break;
             }
@@ -156,7 +185,7 @@ void backend::Generator::gen()
 
 int backend::stackVarMap::add_operand(ir::Operand oper, uint32_t size = 1)
 {
-    this->cur_offset -= size*4;
+    this->cur_offset -= size * 4;
     this->offset_table[oper.name] = this->cur_offset;
     return this->offset_table[oper.name];
 }
@@ -270,12 +299,20 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
     case ir::Operator::store:
         ld_op1 = get_ld_inst(inst.des, rvREG::t1);
         assert(inst.op2.type == ir::Type::IntLiteral && "todo:store non literal");
-        this->fout << "sw " << toString(rv::rvREG::t1) << ", " << this->find_operand(inst.op1) + stoi(inst.op2.name)*4 << "(s0)\n";
+        this->fout << "sw " << toString(rv::rvREG::t1) << ", " << this->find_operand(inst.op1) + stoi(inst.op2.name) * 4 << "(s0)\n";
         break;
     case ir::Operator::load:
         assert(inst.op2.type == ir::Type::IntLiteral && "todo:store non literal");
-        this->fout << "lw " << toString(rv::rvREG::t1) << ", " << this->find_operand(inst.op1) + stoi(inst.op2.name)*4 << "(s0)\n";
-        this->fout << "sw " << toString(rv::rvREG::t1) << ", " << this->find_operand(inst.des) << "(s0)\n";
+        if (this->find_operand(inst.op1) != -1)
+        {
+            this->fout << "lw " << toString(rv::rvREG::t0) << ", " << this->find_operand(inst.op1) + stoi(inst.op2.name) * 4 << "(s0)\n";
+        }
+        else
+        {
+            // load from Data Segment currently,ignore BSS
+            this->loadG(inst.op1.name, stoi(inst.op2.name), rv::rvREG::t1);
+        }
+        this->fout << "sw " << toString(rv::rvREG::t0) << ", " << this->find_operand(inst.des) << "(s0)\n";
         break;
     default:
         break;

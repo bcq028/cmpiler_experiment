@@ -36,7 +36,7 @@ namespace backend
 
         int find_operand(ir::Operand);
 
-        std::map<std::string,std::string> globalVM;
+        std::map<std::string, std::vector<std::string>> globalVM;
 
         void callee(ir::Function &f);
 
@@ -44,8 +44,8 @@ namespace backend
 
         void declareGlobalV(ir::Operand);
 
-        rv::rv_inst get_ld_inst(const ir::Operand &oper, rv::rvREG reg);
-
+        rv::rv_inst get_ld_inst(const ir::Operand &oper, rv::rvREG reg, int);
+        void loadG(std::string label, int offset, rv::rvREG t);
         // reg allocate api
         rv::rvREG getRd(ir::Operand);
         rv::rvFREG fgetRd(ir::Operand);
