@@ -103,6 +103,7 @@ rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper, rv::rvREG r
             inst.imm = stoi(this->globalVM[oper.name]);
         }
     }
+    this->fout<<inst.draw();
     return inst;
 }
 
@@ -153,10 +154,10 @@ void backend::Generator::gen()
     }
 }
 
-int backend::stackVarMap::add_operand(ir::Operand oper, uint32_t size = 4)
+int backend::stackVarMap::add_operand(ir::Operand oper, uint32_t size = 1)
 {
+    this->cur_offset -= size*4;
     this->offset_table[oper.name] = this->cur_offset;
-    this->cur_offset -= size;
     return this->offset_table[oper.name];
 }
 
@@ -179,6 +180,15 @@ int backend::Generator::find_operand(ir::Operand oper)
 
 void backend::Generator::callee(ir::Function &f)
 {
+    int sz = f.InstVec.size();
+    for (auto t : f.InstVec)
+    {
+        if (t->op == ir::Operator::alloc)
+        {
+            assert(t->op1.type == ir::Type::IntLiteral && "todo:alloc var");
+            sz += stoi(t->op1.name);
+        }
+    }
     int size = f.InstVec.size() * 4 + 12;
     this->fout << "addi sp,sp," << -size << '\n';
     this->fout << "sw ra,12(sp)" << '\n';
@@ -230,7 +240,6 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
         if (inst.op1.name != "null")
         {
             ld_op1 = get_ld_inst(inst.op1, rvREG::t1);
-            this->fout << ld_op1.draw();
             fout << "addi a0," << toString(ld_op1.rd) << ",0" << '\n';
         }
         ir_inst.op = rvOPCODE::RET;
@@ -239,15 +248,12 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
     case ir::Operator::mov:
     case ir::Operator::def:
         ld_op1 = get_ld_inst(inst.op1, rvREG::t1);
-        this->fout << ld_op1.draw();
         // 从寄存器保存到栈空间
         this->fout << "sw " << toString(ld_op1.rd) << ", " << this->find_operand(inst.des) << "(s0)\n";
         break;
     case ir::Operator::add:
         ld_op1 = get_ld_inst(inst.op1, rvREG::t1);
         ld_op2 = get_ld_inst(inst.op2, rvREG::t2);
-        this->fout << ld_op1.draw();
-        this->fout << ld_op2.draw();
         this->fout << "add " << toString(this->getRd(inst.des)) << ", " << toString(ld_op1.rd) << ", " << toString(ld_op2.rd) << '\n';
         this->fout << "sw " << toString(this->getRd(inst.des)) << ", " << this->find_operand(inst.des) << "(s0)\n";
         break;
@@ -256,6 +262,20 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
             break;
         // todo: finish call func
         this->caller(inst.op1.name);
+        break;
+    case ir::Operator::alloc:
+        // process in callee func
+        this->stackMap.add_operand(inst.des, stoi(inst.op1.name));
+        break;
+    case ir::Operator::store:
+        ld_op1 = get_ld_inst(inst.des, rvREG::t1);
+        assert(inst.op2.type == ir::Type::IntLiteral && "todo:store non literal");
+        this->fout << "sw " << toString(rv::rvREG::t1) << ", " << this->find_operand(inst.op1) + stoi(inst.op2.name)*4 << "(s0)\n";
+        break;
+    case ir::Operator::load:
+        assert(inst.op2.type == ir::Type::IntLiteral && "todo:store non literal");
+        this->fout << "lw " << toString(rv::rvREG::t1) << ", " << this->find_operand(inst.op1) + stoi(inst.op2.name)*4 << "(s0)\n";
+        this->fout << "sw " << toString(rv::rvREG::t1) << ", " << this->find_operand(inst.des) << "(s0)\n";
         break;
     default:
         break;
