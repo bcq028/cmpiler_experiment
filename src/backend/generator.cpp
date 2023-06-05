@@ -93,7 +93,15 @@ rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper, rv::rvREG r
         inst.op = rv::rvOPCODE::LW;
         inst.rd = reg;
         inst.rs1 = rv::rvREG::s0;
-        inst.imm = this->stackMap.find_operand(oper.name);
+        inst.imm = this->find_operand(oper.name);
+        // process globalV
+        if ((int)inst.imm == -1)
+        {
+            inst.op = rv::rvOPCODE::LI;
+            inst.rd = reg;
+            assert(globalVM.count(oper.name) && "check globalVM");
+            inst.imm = stoi(this->globalVM[oper.name]);
+        }
     }
     return inst;
 }
@@ -110,13 +118,7 @@ void backend::Generator::gen()
     .globl    main  \n\
     .type    main, @function\n";
     this->fout << header;
-    for (auto func : this->program.functions)
-    {
-        if (func.name == "global")
-            continue;
-        this->fout << func.name << ":\n";
-        this->callee(func);
-    }
+
     // gloval V
     for (auto glovalV : this->program.globalVal)
     {
@@ -133,12 +135,21 @@ void backend::Generator::gen()
                         if (inst->op1.type == ir::Type::IntLiteral)
                         {
                             this->fout << "   .word   " << inst->op1.name << '\n';
+                            this->globalVM[glovalV.val.name] = inst->op1.name;
                         }
                     }
                 }
                 break;
             }
         }
+    }
+
+    for (auto func : this->program.functions)
+    {
+        if (func.name == "global")
+            continue;
+        this->fout << func.name << ":\n";
+        this->callee(func);
     }
 }
 
@@ -149,13 +160,21 @@ int backend::stackVarMap::add_operand(ir::Operand oper, uint32_t size = 4)
     return this->offset_table[oper.name];
 }
 
-int backend::stackVarMap::find_operand(ir::Operand oper)
+int backend::Generator::find_operand(ir::Operand oper)
 {
-    if (!this->offset_table.count(oper.name))
+    if (!this->stackMap.offset_table.count(oper.name))
     {
-        this->add_operand(oper);
+        std::string gv;
+        for (auto i : this->program.globalVal)
+        {
+            if (i.val.name == oper.name)
+            {
+                return -1;
+            }
+        }
+        this->stackMap.add_operand(oper);
     }
-    return this->offset_table[oper.name];
+    return this->stackMap.offset_table[oper.name];
 }
 
 void backend::Generator::callee(ir::Function &f)
@@ -202,14 +221,15 @@ void backend::Generator::caller(std::string s)
 
 void backend::Generator::gen_instr(const ir::Instruction &inst)
 {
-    auto ld_op1 = get_ld_inst(inst.op1, rvREG::t1);
-    auto ld_op2 = get_ld_inst(inst.op2, rvREG::t2);
     rv::rv_inst ir_inst;
+    rv::rv_inst ld_op1;
+    rv::rv_inst ld_op2;
     switch (inst.op)
     {
     case ir::Operator::_return:
         if (inst.op1.name != "null")
         {
+            ld_op1 = get_ld_inst(inst.op1, rvREG::t1);
             this->fout << ld_op1.draw();
             fout << "addi a0," << toString(ld_op1.rd) << ",0" << '\n';
         }
@@ -218,14 +238,18 @@ void backend::Generator::gen_instr(const ir::Instruction &inst)
         break;
     case ir::Operator::mov:
     case ir::Operator::def:
+        ld_op1 = get_ld_inst(inst.op1, rvREG::t1);
         this->fout << ld_op1.draw();
         // 从寄存器保存到栈空间
-        this->fout << "sw " << toString(ld_op1.rd) << ", " << this->stackMap.find_operand(inst.des) << "(s0)\n";
+        this->fout << "sw " << toString(ld_op1.rd) << ", " << this->find_operand(inst.des) << "(s0)\n";
         break;
     case ir::Operator::add:
+        ld_op1 = get_ld_inst(inst.op1, rvREG::t1);
+        ld_op2 = get_ld_inst(inst.op2, rvREG::t2);
         this->fout << ld_op1.draw();
         this->fout << ld_op2.draw();
         this->fout << "add " << toString(this->getRd(inst.des)) << ", " << toString(ld_op1.rd) << ", " << toString(ld_op2.rd) << '\n';
+        this->fout << "sw " << toString(this->getRd(inst.des)) << ", " << this->find_operand(inst.des) << "(s0)\n";
         break;
     case ir::Operator::call:
         if (inst.op1.name == "global")

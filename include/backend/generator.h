@@ -20,12 +20,6 @@ namespace backend
         std::map<std::string, int> offset_table;
 
         /**
-         * @brief find the addr of a ir::Operand
-         * @return the offset
-         */
-        int find_operand(ir::Operand);
-
-        /**
          * @brief add a ir::Operand into current map, alloc space for this variable in memory
          * @param[in] size: the space needed(in byte)
          * @return the offset
@@ -40,11 +34,16 @@ namespace backend
         stackVarMap stackMap;
         Generator(ir::Program &, std::ofstream &);
 
+        int find_operand(ir::Operand);
+
+        std::map<std::string,std::string> globalVM;
+
         void callee(ir::Function &f);
 
         void caller(std::string funcName);
 
         void declareGlobalV(ir::Operand);
+
         rv::rv_inst get_ld_inst(const ir::Operand &oper, rv::rvREG reg);
 
         // reg allocate api
