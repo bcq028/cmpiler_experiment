@@ -17,6 +17,7 @@ namespace rv
         t0,
         t1,
         t2,
+        t3,
         s0, // frame pointer fp point to start of callee,
         a0
     };
