@@ -16,7 +16,7 @@ namespace backend
     // it is a map bewteen variable and its mem addr, the mem addr of a local variable can be identified by ($sp + off)
     struct stackVarMap
     {
-        int cur_offset = -12; // 4 for ra,4 for s0, reserve 4 start from -12
+        int cur_offset = 0; 
         std::map<std::string, int> offset_table;
 
         /**
@@ -32,6 +32,7 @@ namespace backend
         const ir::Program &program; // the program to gen
         std::ofstream &fout;        // output file
         std::vector<stackVarMap> stacks;
+        bool ret=false;
         Generator(ir::Program &, std::ofstream &);
 
         int find_operand(ir::Operand);

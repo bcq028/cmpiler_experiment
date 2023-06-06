@@ -57,7 +57,7 @@ void backend::Generator::load(ir::Operand oper, int offset, rv::rvREG t)
 {
     if (isLiteral(oper.type))
     {
-        this->fout << "li "<<toString(t)<<"," << oper.name << '\n';
+        this->fout << "li " << toString(t) << "," << oper.name << '\n';
     }
     else if (this->find_operand(oper) == -1)
     {
@@ -120,11 +120,12 @@ void backend::Generator::gen()
 {
     std::string file_name = "\"main.c\"";
     std::string header = ".file    " + file_name + "\n\
-    .option nopic   \n\
     .text     \n\
-    .align    1  \n\
+	.attribute	4, 16 \n\
+    .p2align	1  \n\
     .globl    main  \n\
     .type    main, @function\n";
+
     this->fout << header;
 
     // gloval V
@@ -242,10 +243,15 @@ void backend::Generator::callee(ir::Function &f)
         std::cout << t1 << '\n';
 #endif
         this->gen_instr(inst);
+        if (this->ret)
+        {
+            this->fout << "lw ra,12(sp)" << '\n';
+            this->fout << "lw s0,8(sp)" << '\n';
+            this->fout << "addi sp,sp," << size << '\n';
+            this->fout << "ret\n";
+            this->ret = false;
+        }
     }
-    this->fout << "lw ra,12(sp)" << '\n';
-    this->fout << "lw s0,8(sp)" << '\n';
-    this->fout << "addi sp,sp," << size << '\n';
     this->stacks.pop_back();
 }
 
@@ -285,17 +291,16 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
     case ir::Operator::_return:
         if (inst->op1.name != "null")
         {
-            load(inst->op1,0,rvREG::t1);
+            load(inst->op1, 0, rvREG::t1);
             fout << "addi a0," << toString(rvREG::t1) << ",0" << '\n';
         }
-        ir_inst.op = rvOPCODE::RET;
-        this->fout << ir_inst.draw();
+        this->ret = true;
         break;
     case ir::Operator::mov:
     case ir::Operator::def:
-        if (this->find_operand(inst->des))
+        if (this->find_operand(inst->des) != -1)
         {
-            load(inst->op1,0,rvREG::t1);
+            load(inst->op1, 0, rvREG::t1);
             // 从寄存器保存到栈空间
             this->sw(rvREG::t1, inst->des);
         }
@@ -307,8 +312,8 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
 
         break;
     case ir::Operator::add:
-        load(inst->op1,0,rvREG::t1);
-        load(inst->op2,0,rvREG::t2);
+        load(inst->op1, 0, rvREG::t1);
+        load(inst->op2, 0, rvREG::t2);
         this->fout << "add " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
@@ -323,7 +328,7 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         this->stacks[this->stacks.size() - 1].add_operand(inst->des, stoi(inst->op1.name));
         break;
     case ir::Operator::store:
-        load(inst->des,0,rvREG::t1);
+        load(inst->des, 0, rvREG::t1);
         assert(inst->op2.type == ir::Type::IntLiteral && "todo:store non literal");
         this->sw(rv::rvREG::t1, inst->op1, stoi(inst->op2.name));
         break;
