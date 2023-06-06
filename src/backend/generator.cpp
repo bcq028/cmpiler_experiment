@@ -61,10 +61,9 @@ void backend::Generator::load(ir::Operand oper, int offset, rv::rvREG t)
     }
     else if (this->find_operand(oper) == -1)
     {
-        this->fout << "lui    t0,\%hi(" << oper.name << ")\n";
-        this->fout << "addi    t0,t0,\%lo(" << oper.name << ")\n";
-        this->fout << "lw    t0," << offset * 4 << "(t0)\n";
-        this->mv(rv::rvREG::t0, t);
+        this->fout << "la    " << toString(t) << "," << oper.name << "\n";
+        this->fout << "lw    " << toString(t) << ", " << offset * 4 << "("<<toString(t)<<")\n";
+
     }
     else
     {
@@ -111,26 +110,19 @@ backend::Generator::Generator(ir::Program &p, std::ofstream &f) : program(p), fo
 
 void backend::Generator::setG(std::string label, int val)
 {
-    this->fout << "lui    t0,\%hi(" << label << ")\n";
-    this->fout << "li    t1," << val << '\n';
-    this->fout << "sw    t1,\%lo(" << label << ")(t0)\n";
+    this->fout << "la    t1," << label << "\n";
+    this->mv(rvREG::zero,rvREG::t0,val);
+    this->fout << "sw    t0, 0(t1)"<<"\n";
 }
 
 void backend::Generator::gen()
 {
-    std::string file_name = "\"main.c\"";
-    std::string header = ".file    " + file_name + "\n\
-    .text     \n\
-	.attribute	4, 16 \n\
-    .p2align	1  \n\
-    .globl    main  \n\
-    .type    main, @function\n";
-
-    this->fout << header;
 
     // gloval V
     for (auto glovalV : this->program.globalVal)
     {
+        this->fout << ".data"
+                   << "\n";
         this->fout << glovalV.val.name << ":\n";
         this->globalVM[glovalV.val.name].resize(1);
         this->globalVM[glovalV.val.name][0] = "0";
@@ -177,6 +169,9 @@ void backend::Generator::gen()
         }
         this->stacks.push_back(backend::stackVarMap());
     }
+
+    std::string header = ".text\n.globl    main  \n";
+    this->fout << header;
 
     for (auto func : this->program.functions)
     {
