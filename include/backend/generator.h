@@ -40,12 +40,15 @@ namespace backend
 
         void callee(ir::Function &f);
 
-        void caller(std::string funcName);
+        void caller(ir::CallInst*);
 
-        void declareGlobalV(ir::Operand);
 
         rv::rv_inst get_ld_inst(const ir::Operand &oper, rv::rvREG reg, int);
-        void loadG(std::string label, int offset, rv::rvREG t);
+        void load(ir::Operand oper, int offset, rv::rvREG t);
+        void sw(rv::rvREG,ir::Operand,int);
+        void setG(std::string label,int val);
+        // move from r1 to r2
+        void mv(rv::rvREG r1,rv::rvREG r2);
         // reg allocate api
         rv::rvREG getRd(ir::Operand);
         rv::rvFREG fgetRd(ir::Operand);
@@ -56,7 +59,7 @@ namespace backend
 
         // generate wrapper function
         void gen();
-        void gen_instr(const ir::Instruction &);
+        void gen_instr(ir::Instruction *);
     };
 
 } // namespace backend
