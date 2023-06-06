@@ -62,8 +62,7 @@ void backend::Generator::load(ir::Operand oper, int offset, rv::rvREG t)
     else if (this->find_operand(oper) == -1)
     {
         this->fout << "la    " << toString(t) << "," << oper.name << "\n";
-        this->fout << "lw    " << toString(t) << ", " << offset * 4 << "("<<toString(t)<<")\n";
-
+        this->fout << "lw    " << toString(t) << ", " << offset * 4 << "(" << toString(t) << ")\n";
     }
     else
     {
@@ -111,8 +110,9 @@ backend::Generator::Generator(ir::Program &p, std::ofstream &f) : program(p), fo
 void backend::Generator::setG(std::string label, int val)
 {
     this->fout << "la    t1," << label << "\n";
-    this->mv(rvREG::zero,rvREG::t0,val);
-    this->fout << "sw    t0, 0(t1)"<<"\n";
+    this->mv(rvREG::zero, rvREG::t0, val);
+    this->fout << "sw    t0, 0(t1)"
+               << "\n";
 }
 
 void backend::Generator::gen()
@@ -306,12 +306,7 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         }
 
         break;
-    case ir::Operator::add:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
-        this->fout << "add " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
-        this->sw(this->getRd(inst->des), inst->des);
-        break;
+
     case ir::Operator::call:
         if (inst->op1.name == "global")
             break;
@@ -336,6 +331,70 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         this->load(inst->op1, 0, rv::rvREG::t1);
         this->mv(rvREG::t1, rvREG::t0, -stoi(inst->op2.name));
         this->sw(rvREG::t0, inst->des);
+        break;
+    case ir::Operator::addi:
+        this->load(inst->op1, 0, rv::rvREG::t1);
+        this->mv(rvREG::t1, rvREG::t0, stoi(inst->op2.name));
+        this->sw(rvREG::t0, inst->des);
+        break;
+    case ir::Operator::add:
+        load(inst->op1, 0, rvREG::t1);
+        load(inst->op2, 0, rvREG::t2);
+        this->fout << "add " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
+        this->sw(this->getRd(inst->des), inst->des);
+        break;
+    case ir::Operator::sub:
+        load(inst->op1, 0, rvREG::t1);
+        load(inst->op2, 0, rvREG::t2);
+        this->fout << "sub " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
+        this->sw(this->getRd(inst->des), inst->des);
+        break;
+    case ir::Operator::div:
+        load(inst->op1, 0, rvREG::t1);
+        load(inst->op2, 0, rvREG::t2);
+        this->fout << "div " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
+        this->sw(this->getRd(inst->des), inst->des);
+        break;
+    case ir::Operator::mul:
+        load(inst->op1, 0, rvREG::t1);
+        load(inst->op2, 0, rvREG::t2);
+        this->fout << "mul " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
+        this->sw(this->getRd(inst->des), inst->des);
+        break;
+    case ir::Operator::mod:
+        load(inst->op1, 0, rvREG::t1);
+        load(inst->op2, 0, rvREG::t2);
+        this->fout << "rem " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
+        this->sw(this->getRd(inst->des), inst->des);
+        break;
+    case ir::Operator::fdef:
+        assert(0 && "todo");
+    case ir::Operator::fmov:
+        assert(0 && "todo");
+    case ir::Operator::fadd:
+        assert(0 && "todo");
+    case ir::Operator::fsub:
+        assert(0 && "todo");
+    case ir::Operator::fmul:
+        assert(0 && "todo");
+    case ir::Operator::fdiv:
+        assert(0 && "todo");
+    case ir::Operator::lss:
+    case ir::Operator::flss:
+    case ir::Operator::leq:
+    case ir::Operator::fleq:
+    case ir::Operator::gtr:
+    case ir::Operator::fgtr:
+    case ir::Operator::geq:
+    case ir::Operator::fgeq:
+    case ir::Operator::neq:
+    case ir::Operator::fneq:
+    case ir::Operator::_not:
+    case ir::Operator::_and:
+    case ir::Operator::_or:
+    case ir::Operator::cvt_f2i:
+    case ir::Operator::cvt_i2f:
+    case ir::Operator::_goto:
         break;
     default:
         assert(0 && "not supported ir type");
