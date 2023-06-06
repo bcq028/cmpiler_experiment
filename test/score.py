@@ -103,6 +103,7 @@ def score_compiler(arg1):
                         continue
 
                     # gcc
+                    print(file)
                     fname, ftype = file.split('.')
                     ref_file = ref_dir + fname + ".out"
                     output_file = output_dir + fname + ".out" 
@@ -133,8 +134,14 @@ def score_compiler(arg1):
                     else:
                         score += 1
                         record[file] = {"retval": 0}
-                    print(file, record[file])
+                    print(record[file])
         print("score:",score,"/",total)
+        files=[]
+        for file in record:
+            if record[file]=={"retval": 0}:
+                files.append(file)
+        files.sort()
+        print(files)
     else:
         print("TODO")
         # exit()

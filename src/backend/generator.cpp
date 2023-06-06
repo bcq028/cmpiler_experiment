@@ -55,7 +55,11 @@ namespace rv
 
 void backend::Generator::load(ir::Operand oper, int offset, rv::rvREG t)
 {
-    if (this->find_operand(oper) == -1)
+    if (isLiteral(oper.type))
+    {
+        this->fout << "li "<<toString(t)<<"," << oper.name << '\n';
+    }
+    else if (this->find_operand(oper) == -1)
     {
         this->fout << "lui    t0,\%hi(" << oper.name << ")\n";
         this->fout << "addi    t0,t0,\%lo(" << oper.name << ")\n";
@@ -68,9 +72,9 @@ void backend::Generator::load(ir::Operand oper, int offset, rv::rvREG t)
     }
 }
 
-void backend::Generator::mv(rv::rvREG r1, rv::rvREG r2)
+void backend::Generator::mv(rv::rvREG r1, rv::rvREG r2, int other)
 {
-    this->fout << "addi " << toString(r2) << "," << toString(r1) << ",0" << '\n';
+    this->fout << "addi " << toString(r2) << "," << toString(r1) << "," << other << '\n';
 }
 
 void backend::Generator::sw(rv::rvREG reg, ir::Operand oper, int offset = 0)
@@ -103,35 +107,6 @@ rv::rvFREG backend::Generator::fgetRs2(ir::Operand = ir::Operand())
     return rvFREG::ft2;
 }
 
-// load oper to register
-rv::rv_inst backend::Generator::get_ld_inst(const ir::Operand &oper, rv::rvREG reg, int ind = 0)
-{
-    rv::rv_inst inst;
-    if (oper.type == ir::Type::IntLiteral)
-    {
-        inst.op = rv::rvOPCODE::LI;
-        inst.rd = reg;
-        inst.imm = stoi(oper.name);
-    }
-    else if (oper.type == ir::Type::Int)
-    {
-        inst.op = rv::rvOPCODE::LW;
-        inst.rd = reg;
-        inst.rs1 = rv::rvREG::s0;
-        inst.imm = this->find_operand(oper.name);
-        // process globalV
-        if ((int)inst.imm == -1)
-        {
-            inst.op = rv::rvOPCODE::LI;
-            inst.rd = reg;
-            assert(globalVM.count(oper.name) && "check globalVM");
-            inst.imm = stoi(this->globalVM[oper.name][ind]);
-        }
-    }
-    this->fout << inst.draw();
-    return inst;
-}
-
 backend::Generator::Generator(ir::Program &p, std::ofstream &f) : program(p), fout(f) {}
 
 void backend::Generator::setG(std::string label, int val)
@@ -157,7 +132,7 @@ void backend::Generator::gen()
     {
         this->fout << glovalV.val.name << ":\n";
         this->globalVM[glovalV.val.name].resize(1);
-        this->globalVM[glovalV.val.name][0]="0";
+        this->globalVM[glovalV.val.name][0] = "0";
 
         for (auto func : this->program.functions)
         {
@@ -199,6 +174,7 @@ void backend::Generator::gen()
                 break;
             }
         }
+        this->stacks.push_back(backend::stackVarMap());
     }
 
     for (auto func : this->program.functions)
@@ -219,7 +195,7 @@ int backend::stackVarMap::add_operand(ir::Operand oper, uint32_t size = 1)
 
 int backend::Generator::find_operand(ir::Operand oper)
 {
-    if (!this->stackMap.offset_table.count(oper.name))
+    if (!this->stacks[this->stacks.size() - 1].offset_table.count(oper.name))
     {
         std::string gv;
         for (auto i : this->program.globalVal)
@@ -229,13 +205,14 @@ int backend::Generator::find_operand(ir::Operand oper)
                 return -1;
             }
         }
-        this->stackMap.add_operand(oper);
+        this->stacks[this->stacks.size() - 1].add_operand(oper);
     }
-    return this->stackMap.offset_table[oper.name];
+    return this->stacks[this->stacks.size() - 1].offset_table[oper.name];
 }
 
 void backend::Generator::callee(ir::Function &f)
 {
+    this->stacks.push_back(backend::stackVarMap());
     int sz = f.InstVec.size();
     for (auto t : f.InstVec)
     {
@@ -269,6 +246,7 @@ void backend::Generator::callee(ir::Function &f)
     this->fout << "lw ra,12(sp)" << '\n';
     this->fout << "lw s0,8(sp)" << '\n';
     this->fout << "addi sp,sp," << size << '\n';
+    this->stacks.pop_back();
 }
 
 std::string rv::rv_inst::draw() const
@@ -302,15 +280,13 @@ void backend::Generator::caller(ir::CallInst *callinst)
 void backend::Generator::gen_instr(ir::Instruction *inst)
 {
     rv::rv_inst ir_inst;
-    rv::rv_inst ld_op1;
-    rv::rv_inst ld_op2;
     switch (inst->op)
     {
     case ir::Operator::_return:
         if (inst->op1.name != "null")
         {
-            ld_op1 = get_ld_inst(inst->op1, rvREG::t1);
-            fout << "addi a0," << toString(ld_op1.rd) << ",0" << '\n';
+            load(inst->op1,0,rvREG::t1);
+            fout << "addi a0," << toString(rvREG::t1) << ",0" << '\n';
         }
         ir_inst.op = rvOPCODE::RET;
         this->fout << ir_inst.draw();
@@ -319,9 +295,9 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
     case ir::Operator::def:
         if (this->find_operand(inst->des))
         {
-            ld_op1 = get_ld_inst(inst->op1, rvREG::t1);
+            load(inst->op1,0,rvREG::t1);
             // 从寄存器保存到栈空间
-            this->sw(ld_op1.rd, inst->des);
+            this->sw(rvREG::t1, inst->des);
         }
         else
         {
@@ -331,9 +307,9 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
 
         break;
     case ir::Operator::add:
-        ld_op1 = get_ld_inst(inst->op1, rvREG::t1);
-        ld_op2 = get_ld_inst(inst->op2, rvREG::t2);
-        this->fout << "add " << toString(this->getRd(inst->des)) << ", " << toString(ld_op1.rd) << ", " << toString(ld_op2.rd) << '\n';
+        load(inst->op1,0,rvREG::t1);
+        load(inst->op2,0,rvREG::t2);
+        this->fout << "add " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::call:
@@ -344,21 +320,22 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         break;
     case ir::Operator::alloc:
         // process in callee func
-        this->stackMap.add_operand(inst->des, stoi(inst->op1.name));
+        this->stacks[this->stacks.size() - 1].add_operand(inst->des, stoi(inst->op1.name));
         break;
     case ir::Operator::store:
-        ld_op1 = get_ld_inst(inst->des, rvREG::t1);
+        load(inst->des,0,rvREG::t1);
         assert(inst->op2.type == ir::Type::IntLiteral && "todo:store non literal");
         this->sw(rv::rvREG::t1, inst->op1, stoi(inst->op2.name));
         break;
     case ir::Operator::load:
         assert(inst->op2.type == ir::Type::IntLiteral && "todo:store non literal");
         this->load(inst->op1.name, stoi(inst->op2.name), rv::rvREG::t1);
-        this->sw(rv::rvREG::t0, inst->des);
+        this->sw(rv::rvREG::t1, inst->des);
         break;
     case ir::Operator::subi:
-        ld_op1 = get_ld_inst(inst->des, rvREG::t1);
-        fout << "addi a0," << toString(ld_op1.rd) << "," << inst->op2.name << '\n';
+        this->load(inst->op1, 0, rv::rvREG::t1);
+        this->mv(rvREG::t1, rvREG::t0, -stoi(inst->op2.name));
+        this->sw(rvREG::t0, inst->des);
         break;
     default:
         assert(0 && "not supported ir type");

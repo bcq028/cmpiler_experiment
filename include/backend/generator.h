@@ -31,7 +31,7 @@ namespace backend
     {
         const ir::Program &program; // the program to gen
         std::ofstream &fout;        // output file
-        stackVarMap stackMap;
+        std::vector<stackVarMap> stacks;
         Generator(ir::Program &, std::ofstream &);
 
         int find_operand(ir::Operand);
@@ -42,13 +42,11 @@ namespace backend
 
         void caller(ir::CallInst*);
 
-
-        rv::rv_inst get_ld_inst(const ir::Operand &oper, rv::rvREG reg, int);
         void load(ir::Operand oper, int offset, rv::rvREG t);
         void sw(rv::rvREG,ir::Operand,int);
         void setG(std::string label,int val);
         // move from r1 to r2
-        void mv(rv::rvREG r1,rv::rvREG r2);
+        void mv(rv::rvREG r1,rv::rvREG r2,int other=0);
         // reg allocate api
         rv::rvREG getRd(ir::Operand);
         rv::rvFREG fgetRd(ir::Operand);
