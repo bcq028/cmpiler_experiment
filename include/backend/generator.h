@@ -38,7 +38,9 @@ namespace backend
         int find_operand(ir::Operand);
 
         std::map<std::string, std::vector<std::string>> globalVM;
-
+        std::map<int, std::string> cur_label;
+        int label_number=1;
+        int cur_label_number=0;
         void callee(ir::Function &f);
 
         void caller(ir::CallInst*);
