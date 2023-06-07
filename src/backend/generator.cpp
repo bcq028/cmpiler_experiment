@@ -56,21 +56,65 @@ namespace rv
 
 }
 
-void backend::Generator::load(ir::Operand oper, int offset, rv::rvREG t)
+void backend::Generator::load(ir::Operand oper, rv::rvREG t, ir::Operand offset = ir::Operand("0", ir::Type::IntLiteral))
 {
-    if (isLiteral(oper.type))
+
+    // process def/mov
+    if (offset.name == "0")
     {
-        this->fout << "   li " << toString(t) << "," << oper.name << '\n';
+        if (oper.type == ir::Type::IntLiteral)
+        {
+            this->fout << "   li    " << toString(t) << ", " << oper.name << "\n";
+            return;
+        }
+        else
+        {
+            if (this->find_operand(oper) == -1)
+            {
+                this->fout << "   la    " << toString(t) << "," << oper.name << "\n";
+                this->fout << "   lw    " << toString(t) << ", " << 0 << "("<<toString(t)<<")\n";
+                return;
+            }
+            else
+            {
+                this->fout << "   lw " << toString(t) << ", " << this->find_operand(oper) << "(s0)\n";
+                return;
+            }
+        }
     }
-    else if (this->find_operand(oper) == -1)
+
+    if (offset.type == ir::Type::IntLiteral)
     {
-        this->fout << "   la    " << toString(t) << "," << oper.name << "\n";
-        this->fout << "   lw    " << toString(t) << ", " << offset * 4 << "(" << toString(t) << ")\n";
+        this->fout << "   li    " << toString(rv::rvREG::t3) << ", " << offset.name << "\n";
     }
     else
     {
-        this->fout << "   lw " << toString(t) << ", " << this->find_operand(oper) + offset * 4 << "(s0)\n";
+        this->fout << "   lw    " << toString(rv::rvREG::t3) << ", " << this->find_operand(offset) << "(s0)\n";
     }
+
+    if (isLiteral(oper.type))
+    {
+        this->mv(rv::rvREG::t3, t);
+        return;
+    }
+    if (this->find_operand(oper) == -1)
+    {
+        this->fout << "   la    " << toString(rvREG::t1) << "," << oper.name << "\n";
+        this->fout << "   slli " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << 2 << '\n';
+        this->fout << "   add " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << toString(rvREG::t1) << '\n';
+        this->fout << "   lw    " << toString(t) << ", " << 0 << "(" << toString(rvREG::t3) << ")\n";
+        return;
+    }
+    else
+    {
+        this->fout << "   li    " << toString(rv::rvREG::t1) << ", " << this->find_operand(oper) << "\n";
+        this->fout << "   slli " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << 2 << '\n';
+        this->fout << "   add " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << toString(rvREG::t1) << '\n';
+        this->fout << "   add " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << toString(rvREG::s0) << '\n';
+        this->fout << "   lw " << toString(t) << ", " << 0 << "(t3)\n";
+        return;
+    }
+    assert(0 && " load fail ");
 }
 
 void backend::Generator::mv(rv::rvREG r1, rv::rvREG r2, int other)
@@ -292,7 +336,7 @@ void backend::Generator::caller(ir::CallInst *callinst)
     for (int i = 0; i < callinst->argumentList.size(); ++i)
     {
         ir::Operand p = callinst->argumentList[i];
-        this->load(p.name, 0, rv::rvREG::t0);
+        this->load(p.name, rv::rvREG::t0);
         // load param to ai
         this->fout << "   addi a" << i << "," << toString(rv::rvREG::t0) << ",0" << '\n';
     }
@@ -308,7 +352,7 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
     case ir::Operator::_return:
         if (inst->op1.name != "null")
         {
-            load(inst->op1, 0, rvREG::t1);
+            load(inst->op1, rvREG::t1);
             fout << "    addi a0," << toString(rvREG::t1) << ",0" << '\n';
         }
         this->ret = true;
@@ -317,7 +361,7 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
     case ir::Operator::def:
         if (this->find_operand(inst->des) != -1)
         {
-            load(inst->op1, 0, rvREG::t1);
+            this->load(inst->op1, rvREG::t1);
             // 从寄存器保存到栈空间
             this->sw(rvREG::t1, inst->des);
         }
@@ -340,79 +384,78 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         this->stacks[this->stacks.size() - 1].add_operand(inst->des, stoi(inst->op1.name));
         break;
     case ir::Operator::store:
-        load(inst->des, 0, rvREG::t1);
+        load(inst->des, rvREG::t1);
         assert(inst->op2.type == ir::Type::IntLiteral && "todo:store non literal");
         this->sw(rv::rvREG::t1, inst->op1, stoi(inst->op2.name));
         break;
     case ir::Operator::load:
-        assert(inst->op2.type == ir::Type::IntLiteral && "todo:store non literal");
-        this->load(inst->op1.name, stoi(inst->op2.name), rv::rvREG::t1);
+        this->load(inst->op1.name, rv::rvREG::t1, inst->op2);
         this->sw(rv::rvREG::t1, inst->des);
         break;
     case ir::Operator::subi:
-        this->load(inst->op1, 0, rv::rvREG::t1);
+        this->load(inst->op1, rv::rvREG::t1);
         this->mv(rvREG::t1, rvREG::t0, -stoi(inst->op2.name));
         this->sw(rvREG::t0, inst->des);
         break;
     case ir::Operator::addi:
-        this->load(inst->op1, 0, rv::rvREG::t1);
+        this->load(inst->op1, rv::rvREG::t1);
         this->mv(rvREG::t1, rvREG::t0, stoi(inst->op2.name));
         this->sw(rvREG::t0, inst->des);
         break;
     case ir::Operator::add:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   add " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::sub:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   sub " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::div:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   div " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::mul:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   mul " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::mod:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   rem " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
 
     case ir::Operator::lss:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   slt " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
 
     case ir::Operator::eq:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   sub " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->fout << "   seqz " << toString(this->getRd(inst->des)) << ", " << toString(this->getRd(inst->des)) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::gtr:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   sgt " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::geq:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   sub " << toString(rvREG::t3) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->fout << "   seqz " << toString(rvREG::t3) << ", " << toString(rvREG::t3) << '\n';
         this->fout << "   sgt " << toString(rvREG::t0) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
@@ -420,8 +463,8 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         this->sw(rvREG::t0, inst->des);
         break;
     case ir::Operator::leq:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   sub " << toString(rvREG::t3) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->fout << "   seqz " << toString(rvREG::t3) << ", " << toString(rvREG::t3) << '\n';
         this->fout << "   slt " << toString(rvREG::t0) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
@@ -430,26 +473,26 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         break;
 
     case ir::Operator::neq:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   sub " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->fout << "   snez " << toString(this->getRd(inst->des)) << ", " << toString(this->getRd(inst->des)) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::_not:
-        load(inst->op1, 0, rvREG::t1);
+        load(inst->op1, rvREG::t1);
         this->fout << "   seqz " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::_and:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   and " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
     case ir::Operator::_or:
-        load(inst->op1, 0, rvREG::t1);
-        load(inst->op2, 0, rvREG::t2);
+        load(inst->op1, rvREG::t1);
+        load(inst->op2, rvREG::t2);
         this->fout << "   or " << toString(this->getRd(inst->des)) << ", " << toString(rvREG::t1) << ", " << toString(rvREG::t2) << '\n';
         this->sw(this->getRd(inst->des), inst->des);
         break;
@@ -458,11 +501,11 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
     case ir::Operator::_goto:
         if (inst->op1.type != ir::Type::Int)
         {
-            this->fout << "   j "  << cur_label[this->cur_label_number + std::stoi(inst->des.name)] << '\n';
+            this->fout << "   j " << cur_label[this->cur_label_number + std::stoi(inst->des.name)] << '\n';
         }
         else
         {
-            load(inst->op1, 0, rvREG::t1);
+            load(inst->op1, rvREG::t1);
             this->fout << "   bnez " << toString(rvREG::t1) << ", " << cur_label[this->cur_label_number + std::stoi(inst->des.name)] << '\n';
         }
         break;

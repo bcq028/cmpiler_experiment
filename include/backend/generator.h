@@ -45,7 +45,7 @@ namespace backend
 
         void caller(ir::CallInst*);
 
-        void load(ir::Operand oper, int offset, rv::rvREG t);
+        void load(ir::Operand oper, rv::rvREG t,ir::Operand offset);
         void sw(rv::rvREG,ir::Operand,int);
         void setG(std::string label,int val);
         // move from r1 to r2

@@ -138,7 +138,7 @@ def score_compiler(arg1):
         print("score:",score,"/",total)
         files=[]
         for file in record:
-            if record[file]=={"retval": 0}:
+            if record[file]!={"retval": 0}:
                 files.append(file)
         files.sort()
         print(files)
