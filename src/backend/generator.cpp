@@ -72,7 +72,7 @@ void backend::Generator::load(ir::Operand oper, rv::rvREG t, ir::Operand offset 
             if (this->find_operand(oper) == -1)
             {
                 this->fout << "   la    " << toString(t) << "," << oper.name << "\n";
-                this->fout << "   lw    " << toString(t) << ", " << 0 << "("<<toString(t)<<")\n";
+                this->fout << "   lw    " << toString(t) << ", " << 0 << "(" << toString(t) << ")\n";
                 return;
             }
             else
@@ -124,7 +124,19 @@ void backend::Generator::mv(rv::rvREG r1, rv::rvREG r2, int other)
 
 void backend::Generator::sw(rv::rvREG reg, ir::Operand oper, int offset = 0)
 {
-    this->fout << "   sw " << toString(reg) << ", " << this->find_operand(oper) + offset * 4 << "(s0)\n";
+    if (this->find_operand(oper) != -1)
+    {
+        this->fout << "   sw " << toString(reg) << ", " << this->find_operand(oper) + offset * 4 << "(s0)\n";
+    }
+    else
+    {
+        assert(reg != rvREG::t0);
+        this->fout << "   la    " << toString(rvREG::t0) <<","+oper.name
+                   << "\n";
+
+        this->fout << "   sw    " << toString(reg) << ", 0(t0)"
+                   << "\n";
+    }
 }
 
 rv::rvREG backend::Generator::getRd(ir::Operand = ir::Operand())
@@ -153,14 +165,6 @@ rv::rvFREG backend::Generator::fgetRs2(ir::Operand = ir::Operand())
 }
 
 backend::Generator::Generator(ir::Program &p, std::ofstream &f) : program(p), fout(f) {}
-
-void backend::Generator::setG(std::string label, int val)
-{
-    this->fout << "   la    t1," << label << "\n";
-    this->mv(rvREG::zero, rvREG::t0, val);
-    this->fout << "   sw    t0, 0(t1)"
-               << "\n";
-}
 
 void backend::Generator::gen()
 {
@@ -359,18 +363,8 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         break;
     case ir::Operator::mov:
     case ir::Operator::def:
-        if (this->find_operand(inst->des) != -1)
-        {
-            this->load(inst->op1, rvREG::t1);
-            // 从寄存器保存到栈空间
-            this->sw(rvREG::t1, inst->des);
-        }
-        else
-        {
-            assert(inst->op1.type == ir::Type::IntLiteral && "todo:process gval def");
-            this->setG(inst->des.name, stoi(inst->op1.name));
-        }
-
+        this->load(inst->op1, rvREG::t1);
+        this->sw(rvREG::t1, inst->des);
         break;
 
     case ir::Operator::call:
