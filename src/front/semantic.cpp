@@ -1228,6 +1228,9 @@ void Analyzer::analysisNumber(Number *root, string &buffer)
     bool isFLoat;
     isNumber(node->token.value, isFLoat);
     root->t = isFLoat ? Type::FloatLiteral : Type::IntLiteral;
+    // if(node->token.value[0]=='0'&& node->token.value.size()>1 && node->token.value[1]!='x'&& node->token.value[1]!='b'&& node->token.value[1]!='o'){
+    //     node->token.value="0o"+node->token.value.substr(1,node->token.value.size()-1);
+    // }
     root->v = node->token.value;
     root->is_computable = true;
 }

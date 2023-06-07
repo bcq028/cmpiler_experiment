@@ -10,6 +10,26 @@ bool isLiteral(ir::Type t)
     return t == ir::Type::IntLiteral || t == ir::Type::FloatLiteral;
 }
 
+int smartStoi(const std::string &str)
+{
+    int base = 10; // 默认十进制
+
+    if (str.size() >= 2 && str.substr(0, 2) == "0x")
+    {
+        base = 16; // 十六进制
+    }
+    else if (str.size() >= 2 && str.substr(0, 2) == "0b")
+    {
+        base = 2; // 二进制
+    }
+    else if (str.size() >= 1 && str[0] == '0')
+    {
+        base = 8; // 八进制
+    }
+
+    return std::stoi(str, nullptr, base);
+}
+
 namespace rv
 {
     std::string toString(rvREG r)
@@ -131,7 +151,7 @@ void backend::Generator::sw(rv::rvREG reg, ir::Operand oper, int offset = 0)
     else
     {
         assert(reg != rvREG::t0);
-        this->fout << "   la    " << toString(rvREG::t0) <<","+oper.name
+        this->fout << "   la    " << toString(rvREG::t0) << "," + oper.name
                    << "\n";
 
         this->fout << "   sw    " << toString(reg) << ", 0(t0)"
@@ -187,7 +207,7 @@ void backend::Generator::gen()
                     if (inst->op == ir::Operator::alloc)
                     {
                         assert(inst->op1.type == ir::Type::IntLiteral && "todo:alloc var");
-                        this->globalVM[inst->des.name].resize(stoi(inst->op1.name));
+                        this->globalVM[inst->des.name].resize(smartStoi(inst->op1.name));
                     }
                     if (inst->op == ir::Operator::mov)
                     {
@@ -206,7 +226,7 @@ void backend::Generator::gen()
                         {
                             if (inst->op2.type == ir::Type::IntLiteral)
                             {
-                                this->globalVM[glovalV.val.name][stoi(inst->op2.name)] = inst->des.name;
+                                this->globalVM[glovalV.val.name][smartStoi(inst->op2.name)] = inst->des.name;
                             }
                         }
                     }
@@ -266,7 +286,7 @@ void backend::Generator::callee(ir::Function &f)
         if (t->op == ir::Operator::alloc)
         {
             assert(t->op1.type == ir::Type::IntLiteral && "todo:alloc var");
-            sz += stoi(t->op1.name);
+            sz += smartStoi(t->op1.name);
         }
     }
     int size = f.InstVec.size() * 4 + 12;
@@ -290,9 +310,9 @@ void backend::Generator::callee(ir::Function &f)
         if (inst->op == ir::Operator::_goto)
         {
             assert(inst->des.type == ir::Type::IntLiteral);
-            if (!this->cur_label.count(i + stoi(inst->des.name)))
+            if (!this->cur_label.count(i + smartStoi(inst->des.name)))
             {
-                this->cur_label[i + stoi(inst->des.name)] = ".LBB0_" + std::to_string(label_number);
+                this->cur_label[i + smartStoi(inst->des.name)] = ".LBB0_" + std::to_string(label_number);
                 label_number += 1;
             }
         }
@@ -375,12 +395,12 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         break;
     case ir::Operator::alloc:
         // process in callee func
-        this->stacks[this->stacks.size() - 1].add_operand(inst->des, stoi(inst->op1.name));
+        this->stacks[this->stacks.size() - 1].add_operand(inst->des, smartStoi(inst->op1.name));
         break;
     case ir::Operator::store:
         load(inst->des, rvREG::t1);
         assert(inst->op2.type == ir::Type::IntLiteral && "todo:store non literal");
-        this->sw(rv::rvREG::t1, inst->op1, stoi(inst->op2.name));
+        this->sw(rv::rvREG::t1, inst->op1, smartStoi(inst->op2.name));
         break;
     case ir::Operator::load:
         this->load(inst->op1.name, rv::rvREG::t1, inst->op2);
@@ -388,12 +408,12 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         break;
     case ir::Operator::subi:
         this->load(inst->op1, rv::rvREG::t1);
-        this->mv(rvREG::t1, rvREG::t0, -stoi(inst->op2.name));
+        this->mv(rvREG::t1, rvREG::t0, -smartStoi(inst->op2.name));
         this->sw(rvREG::t0, inst->des);
         break;
     case ir::Operator::addi:
         this->load(inst->op1, rv::rvREG::t1);
-        this->mv(rvREG::t1, rvREG::t0, stoi(inst->op2.name));
+        this->mv(rvREG::t1, rvREG::t0, smartStoi(inst->op2.name));
         this->sw(rvREG::t0, inst->des);
         break;
     case ir::Operator::add:
