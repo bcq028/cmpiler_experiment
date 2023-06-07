@@ -76,6 +76,51 @@ namespace rv
 
 }
 
+void backend::Generator::sw(rv::rvREG reg, ir::Operand oper, ir::Operand offset = ir::Operand("0", ir::Type::IntLiteral))
+{
+    if (offset.name == "0")
+    {
+        if (this->find_operand(oper) != -1)
+        {
+            this->fout << "   sw    " << toString(reg) << ", " << this->find_operand(oper) << "(s0)\n";
+        }
+        else
+        {
+            assert(reg != rvREG::t0);
+            this->fout << "   la    " << toString(rvREG::t0) << "," << oper.name << "\n";
+            this->fout << "   sw    " << toString(reg) << ", 0(" << toString(rvREG::t0) << ")\n";
+        }
+        return;
+    }
+    if (offset.type == ir::Type::IntLiteral)
+    {
+        this->fout << "   li    " << toString(rv::rvREG::t3) << ", " << smartStoi(offset.name) << "\n";
+    }
+    else
+    {
+        this->fout << "   lw    " << toString(rv::rvREG::t3) << ", " << this->find_operand(offset) << "(s0)\n";
+    }
+ 
+    if (this->find_operand(oper) == -1)
+    {
+        this->fout << "   la    " << toString(rvREG::t2) << "," << oper.name << "\n";
+        this->fout << "   slli " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << 2 << '\n';
+        this->fout << "   add " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << toString(rvREG::t2) << '\n';
+        this->fout << "   sw    " << toString(reg) << ", " << 0 << "(" << toString(rvREG::t3) << ")\n";
+        return;
+    }
+    else
+    {
+        this->fout << "   li    " << toString(rv::rvREG::t2) << ", " << this->find_operand(oper) << "\n";
+        this->fout << "   slli " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << 2 << '\n';
+        this->fout << "   add " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << toString(rvREG::t2) << '\n';
+        this->fout << "   add " << toString(rv::rvREG::t3) << ", " << toString(rvREG::t3) << ", " << toString(rvREG::s0) << '\n';
+        this->fout << "   sw " << toString(reg) << ", " << 0 << "(t3)\n";
+        return;
+    }
+    assert(0 && " sw fail ");
+}
+
 void backend::Generator::load(ir::Operand oper, rv::rvREG t, ir::Operand offset = ir::Operand("0", ir::Type::IntLiteral))
 {
 
@@ -84,7 +129,7 @@ void backend::Generator::load(ir::Operand oper, rv::rvREG t, ir::Operand offset 
     {
         if (oper.type == ir::Type::IntLiteral)
         {
-            this->fout << "   li    " << toString(t) << ", " << oper.name << "\n";
+            this->fout << "   li    " << toString(t) << ", " << smartStoi(oper.name) << "\n";
             return;
         }
         else
@@ -105,7 +150,7 @@ void backend::Generator::load(ir::Operand oper, rv::rvREG t, ir::Operand offset 
 
     if (offset.type == ir::Type::IntLiteral)
     {
-        this->fout << "   li    " << toString(rv::rvREG::t3) << ", " << offset.name << "\n";
+        this->fout << "   li    " << toString(rv::rvREG::t3) << ", " << smartStoi(offset.name) << "\n";
     }
     else
     {
@@ -140,23 +185,6 @@ void backend::Generator::load(ir::Operand oper, rv::rvREG t, ir::Operand offset 
 void backend::Generator::mv(rv::rvREG r1, rv::rvREG r2, int other)
 {
     this->fout << "   addi " << toString(r2) << "," << toString(r1) << "," << other << '\n';
-}
-
-void backend::Generator::sw(rv::rvREG reg, ir::Operand oper, int offset = 0)
-{
-    if (this->find_operand(oper) != -1)
-    {
-        this->fout << "   sw " << toString(reg) << ", " << this->find_operand(oper) + offset * 4 << "(s0)\n";
-    }
-    else
-    {
-        assert(reg != rvREG::t0);
-        this->fout << "   la    " << toString(rvREG::t0) << "," + oper.name
-                   << "\n";
-
-        this->fout << "   sw    " << toString(reg) << ", 0(t0)"
-                   << "\n";
-    }
 }
 
 rv::rvREG backend::Generator::getRd(ir::Operand = ir::Operand())
@@ -399,8 +427,7 @@ void backend::Generator::gen_instr(ir::Instruction *inst)
         break;
     case ir::Operator::store:
         load(inst->des, rvREG::t1);
-        assert(inst->op2.type == ir::Type::IntLiteral && "todo:store non literal");
-        this->sw(rv::rvREG::t1, inst->op1, smartStoi(inst->op2.name));
+        this->sw(rv::rvREG::t1, inst->op1, inst->op2);
         break;
     case ir::Operator::load:
         this->load(inst->op1.name, rv::rvREG::t1, inst->op2);

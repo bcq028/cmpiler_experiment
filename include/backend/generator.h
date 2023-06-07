@@ -46,7 +46,7 @@ namespace backend
         void caller(ir::CallInst*);
 
         void load(ir::Operand oper, rv::rvREG t,ir::Operand offset);
-        void sw(rv::rvREG,ir::Operand,int);
+        void sw(rv::rvREG,ir::Operand,ir::Operand offset);
         // move from r1 to r2
         void mv(rv::rvREG r1,rv::rvREG r2,int other=0);
         // reg allocate api
